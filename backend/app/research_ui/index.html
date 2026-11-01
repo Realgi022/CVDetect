@@ -12,24 +12,31 @@
   <main>
     <p class="eyebrow">CVDetect · Local research only</p>
     <h1>Experimental writing diagnostic</h1>
-    <p>This is not an authorship detector. Professional style and generic phrases cannot prove who wrote text.</p>
+    <p class="intro">Explore an unvalidated model in a private, local experiment. This is not an authorship detector: writing style cannot prove who wrote text.</p>
     <aside><strong>Fictional text only.</strong> Do not enter real CVs, names, emails, phone numbers, or other personal information. This page does not receive uploaded CVs.</aside>
-    <section>
-      <h2>Try a fictional example</h2>
+    <section class="card" aria-labelledby="input-title">
+      <h2 id="input-title">Try a fictional example</h2>
       <p>The model was trained on eight fictional records with illustrative labels. Its real-world accuracy and fairness are not established.</p>
       <form id="form" novalidate autocomplete="off">
         <label for="text">Manually enter fictional CV-style text</label>
-        <textarea id="text" maxlength="20000" rows="8" required spellcheck="false" autocomplete="off"></textarea>
-        <p class="help">Maximum 20,000 characters. Input and results are not saved by this application.</p>
+        <textarea id="text" rows="8" required spellcheck="false" autocomplete="off" aria-describedby="input-help"></textarea>
+        <p class="help" id="input-help">Maximum 20,000 characters. Input and results are not saved by this application.</p>
         <button id="run" type="submit">Run Experimental Analysis</button>
       </form>
       <p id="status" role="status" aria-live="polite"></p>
-      <section id="result" hidden aria-labelledby="result-title">
+      <section id="result" class="result" hidden aria-labelledby="result-title">
         <h2 id="result-title">Research diagnostic</h2>
-        <p><strong>Authorship conclusion:</strong> <span id="conclusion"></span></p>
-        <p><strong>Raw uncalibrated decision score:</strong> <span id="score"></span></p>
-        <p>This score is not a probability or a reliable AI/human verdict. Abstaining does not prove safety or accuracy.</p>
-        <ul id="limitations"></ul>
+        <div class="conclusion"><span>Authorship conclusion</span><strong id="conclusion"></strong></div>
+        <div class="score-card">
+          <p class="score-label">Raw uncalibrated decision score <span>(rounded to 3 decimal places)</span></p>
+          <p class="score" id="score"></p>
+          <p id="direction"></p>
+          <p>This score is not an AI-authorship probability or a reliable AI/human verdict.</p>
+        </div>
+        <section aria-labelledby="limitations-title">
+          <h3 id="limitations-title">Research limitations</h3>
+          <ul id="limitations"></ul>
+        </section>
       </section>
     </section>
     <p class="help">Local-only access is not authentication. Other local processes or a compromised browser may access this service; never expose it publicly.</p>

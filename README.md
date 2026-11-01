@@ -37,7 +37,7 @@ Open http://localhost:5173, choose or drop a PDF or DOCX, inspect the extracted 
 
 ## Test
 
-Install both `requirements.txt` and `ml/requirements.txt` to run the complete backend suite. From `backend`, run `python -m pytest -q`. From `frontend`, run `npm run build`. With the backend running, `Invoke-RestMethod http://localhost:8000/api/health` should return `status : ok`. Stop the backend and wait up to 15 seconds to see the frontend report it offline. The ML dependencies are not required to run the API itself.
+Install both `requirements.txt` and `ml/requirements.txt` to run the complete backend suite. From `backend`, run `python -m pytest -q` and `node --test tests/research_ui.test.cjs` (the latter exercises research-page JavaScript without a browser). From `frontend`, run `npm run build`. With the backend running, `Invoke-RestMethod http://localhost:8000/api/health` should return `status : ok`. Stop the backend and wait up to 15 seconds to see the frontend report it offline. The ML dependencies are not required to run the API itself.
 
 ## Extraction API
 
@@ -96,7 +96,7 @@ $env:CVDETECT_EXPERIMENTAL_INFERENCE = "1"
 python -m app.dev_server
 ```
 
-Open **http://127.0.0.1:8001/research** in a browser. Manually enter fictional CV-style text only, select **Run Experimental Analysis**, and inspect the inconclusive result and limitations. Do not paste real CVs, names, contact details, or personal information. The UI has no upload connection and cannot verify whether text is fictional; this depends on the user. Try empty input for validation, or stop the launcher before submitting to check the network-error state. The page is not part of the public React build. Input and output are not intentionally saved by the application, but browsers or external tools may retain form data, screenshots, or logs; use a private environment and avoid sensitive text.
+Open **http://127.0.0.1:8001/research** in a browser. Manually enter fictional CV-style text only, select **Run Experimental Analysis**, and inspect the inconclusive result and limitations. The page rounds the raw score to three decimal places for display; the API retains the original value. Do not paste real CVs, names, contact details, or personal information. The UI has no upload connection and cannot verify whether text is fictional; this depends on the user. Try empty input for validation, or stop the launcher before submitting to check the network-error state. Check keyboard navigation and the layout at desktop and mobile widths in a browser. The page is not part of the public React build. Input and output are not intentionally saved by the application, but browsers or external tools may retain form data, screenshots, or logs; use a private environment and avoid sensitive text.
 
 Alternatively, in another PowerShell terminal, use the existing CLI endpoint with fictional text only:
 

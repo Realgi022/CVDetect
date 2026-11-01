@@ -123,5 +123,26 @@ def test_browser_input_and_inference_do_not_train_on_request(browser):
     assert response.headers["cache-control"] == "no-store"
 
 
+@pytest.mark.parametrize("payload", [{"text": "   "}, [], {"text": None}, {"text": "fictional", "extra": 1}])
+def test_browser_rejects_invalid_payloads_without_echo(browser, payload):
+    token, _ = session(browser)
+    response = browser.post(server.RESEARCH_API, headers=headers(token), json=payload)
+    assert response.status_code == 400
+    assert "fictional" not in response.text
+
+
+def test_browser_character_limit_boundary(browser):
+    token, _ = session(browser)
+    assert browser.post(server.RESEARCH_API, headers=headers(token), json={"text": "x" * 20000}).status_code == 200
+    assert browser.post(server.RESEARCH_API, headers=headers(token), json={"text": "x" * 20001}).status_code == 400
+
+
+def test_page_accessible_structure(browser):
+    _, page = session(browser)
+    for expected in ('<label for="text">', 'aria-describedby="input-help"', 'role="status"',
+                     'aria-live="polite"', 'id="limitations-title"', 'not an AI-authorship probability'):
+        assert expected in page.text
+
+
 def test_cli_still_rejects_browser_origin(browser):
     assert browser.post(server.PATH, headers={"origin": server.ORIGIN}, json={"text": "fictional"}).status_code == 404
