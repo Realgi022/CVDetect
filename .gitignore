@@ -18,3 +18,9 @@ uploads/
 uploaded_cvs/
 *.pdf
 *.docx
+*.joblib
+*.pkl
+*.pickle
+# Put any locally collected research data here; never commit personal CVs.
+backend/ml/private_data/
+backend/ml/artifacts/

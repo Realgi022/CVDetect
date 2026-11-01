@@ -1,6 +1,6 @@
 # CVDetect
 
-CVDetect extracts text from uploaded PDF and DOCX CVs, previews it, and offers explainable rule-based quality guidance. AI-writing detection is a future experimental feature, not implemented; it cannot reliably determine authorship.
+CVDetect extracts text from uploaded PDF and DOCX CVs, previews it, and offers explainable rule-based quality guidance. An isolated offline AI-writing classification experiment exists for research only; there is no detection feature in the API or dashboard, and it cannot reliably determine authorship.
 
 ## Requirements
 
@@ -37,7 +37,7 @@ Open http://localhost:5173, choose or drop a PDF or DOCX, inspect the extracted 
 
 ## Test
 
-From `backend`, run `python -m pytest -q`. From `frontend`, run `npm run build`. With the backend running, `Invoke-RestMethod http://localhost:8000/api/health` should return `status : ok`. Stop the backend and wait up to 15 seconds to see the frontend report it offline.
+Install both `requirements.txt` and `ml/requirements.txt` to run the complete backend suite. From `backend`, run `python -m pytest -q`. From `frontend`, run `npm run build`. With the backend running, `Invoke-RestMethod http://localhost:8000/api/health` should return `status : ok`. Stop the backend and wait up to 15 seconds to see the frontend report it offline. The ML dependencies are not required to run the API itself.
 
 ## Extraction API
 
@@ -72,11 +72,26 @@ The rules do not intentionally score demographics, names, school prestige, or co
 
 Documents are sent to the configured backend, processed in memory, and not saved by the application. The selected file, extracted text and analysis are held in page state until replaced or the page is closed/reloaded, not browser storage. Avoid sharing the response or running infrastructure that logs request or response bodies. Filenames are reduced to their basename; neither filenames nor document contents are intentionally logged by the application.
 
-Scanned or image-only PDFs are not supported (no OCR); empty, encrypted, corrupt and unsupported documents are rejected. Extraction may not preserve layout, reading order, headers, text boxes or all complex DOCX content. Limits reduce resource risks but do not provide process isolation or guarantee protection from malicious parser inputs; this local development service is not hardened for public deployment. No AI analysis is performed.
+Scanned or image-only PDFs are not supported (no OCR); empty, encrypted, corrupt and unsupported documents are rejected. Extraction may not preserve layout, reading order, headers, text boxes or all complex DOCX content. Limits reduce resource risks but do not provide process isolation or guarantee protection from malicious parser inputs; this local development service is not hardened for public deployment. No AI analysis is performed by the application.
 
-## Future research: experimental AI-writing detection
+## Offline experimental ML baseline
 
-No detector or detection score is implemented. A possible future module would be separate from CV-quality scoring and opt-in, with privacy-preserving evaluation before any user-facing release. Evaluation would require appropriately consented, representative human-written, AI-generated, and mixed/edited samples, independent held-out tests across languages, genres, document lengths, accessibility needs and applicant groups, and monitoring of false-positive and false-negative rates under distribution shift. Short CVs and edited or formulaic writing are especially difficult; false accusations can harm applicants, including non-native English speakers. Detection cannot reliably establish authorship: human and machine writing overlap, and editing or assistance blurs any boundary. Raw detector outputs must not be presented as probabilities without independent calibration and validation on the intended population and use case; even calibrated scores would not prove authorship or justify automated hiring decisions.
+`backend/ml` is a standalone research smoke test, **not a reliable detector** and not connected to the service or dashboard. It trains an in-memory TF-IDF / logistic-regression pipeline on a fixed training partition, evaluates held-out records, and prints class counts, group counts, confusion matrix (rows actual, columns predicted; human then ai), precision, recall, F1 and the human-to-AI false-positive rate. The vectorizer is fitted on training data only. The experiment does not save or load models; never load untrusted pickle or joblib files, which can execute code.
+
+From `backend` in the existing virtual environment:
+
+```powershell
+python -m pip install -r requirements.txt
+python -m pip install -r ml/requirements.txt
+python -m pytest -q
+python -m ml.run
+```
+
+Optionally pass a local JSON path to `python -m ml.run path/to/data.json`. The format is a JSON array of objects with nonempty strings `text`, `label` (`human` or `ai`), `source_id`, `document_group`, and `generator_or_author_source`. Optional `split` is `train` or `test` and must be supplied for all records or none. Identifiers must consistently represent original sources and related documents; record reliable provenance, collection consent, transformations, and generators/authors before any real research. With no explicit split, the code uses a fixed-seed group split across connected source/document identifiers; both partitions must contain both classes or the run fails rather than silently resampling. Reported counts cover records and unique identifiers, not independent authors.
+
+The included `ml/fixtures/synthetic_smoke.json` is entirely fictional, with **simulated, unverified labels**, not known human-versus-model provenance. Its deliberately contrasting styles and tiny fixed split may yield flattering numbers; these are software smoke-test outputs only, not evidence of detection accuracy, generalization, or fairness. Duplicate normalized texts are rejected, as are cross-split overlapping source/document identifiers, highly similar texts, identical long lines, or matching ten-word passages. This conservative check can reject common boilerplate and cannot detect every paraphrase or incorrect provenance claim. Independently audit near-duplicates and source relationships before evaluation; do not use personal CVs here. If authorized data is ever used in a separate study, keep it outside Git (the ignored `backend/ml/private_data/` is provided, but ignore rules are not access control), with appropriate consent and retention controls. Never commit sensitive datasets or artifacts.
+
+Future evaluation would require appropriately consented, representative human-written, AI-generated, and mixed/edited samples, genuinely independent held-out tests across languages, genres, document lengths, accessibility needs and applicant groups, and monitoring of false-positive and false-negative rates under distribution shift. Short CVs and edited or formulaic writing are especially difficult; false accusations can harm applicants, including non-native English speakers. Detection cannot reliably establish authorship: human and machine writing overlap, and editing or assistance blurs any boundary. Model outputs must not be presented as probabilities a CV was AI-written without independent calibration and validation on the intended population and use case; even calibrated scores would not prove authorship or justify automated hiring decisions.
 
 ## Structure
 
@@ -87,6 +102,7 @@ No detector or detection score is implemented. A possible future module would be
 - `backend/tests/test_analysis.py`: analysis and upload validation tests.
 - `backend/tests/fixtures/synthetic_cvs.json` and `backend/tests/test_synthetic_profiles.py`: fictional profiles and deterministic validation checks.
 - `backend/requirements.txt`: Python dependencies.
+- `backend/ml/`: isolated experimental baseline, pinned direct ML dependency, fictional smoke data and evaluation; `backend/tests/test_ml.py` tests it.
 - `frontend/src/App.tsx`: homepage and connection indicator.
 - `frontend/src/health.ts`: backend health request and URL configuration.
 - `frontend/src/extract.ts`: extraction API client.
