@@ -21,7 +21,7 @@ class DocumentError(Exception):
 
 
 def normalize(text: str) -> str:
-    return "\n\n".join(" ".join(part.split()) for part in re.split(r"\n\s*\n", text) if part.strip())
+    return "\n\n".join("\n".join(" ".join(line.split()) for line in part.splitlines() if line.strip()) for part in re.split(r"\n\s*\n", text) if part.strip())
 
 
 def extract_document(filename: str, data: bytes) -> dict:
@@ -86,7 +86,11 @@ def extract_docx(data: bytes) -> str:
     parts = []
     for block in document.iter_inner_content():
         if isinstance(block, Paragraph):
-            parts.append(block.text)
+            text = block.text
+            # Word list markers are often formatting, not part of paragraph.text.
+            if text.strip() and (block._p.pPr is not None and block._p.pPr.numPr is not None or block.style and block.style.name.lower().startswith(("list bullet", "list number"))):
+                text = "• " + text
+            parts.append(text)
         elif isinstance(block, Table):
             for row in block.rows:
                 parts.append(" | ".join(cell.text for cell in row.cells))

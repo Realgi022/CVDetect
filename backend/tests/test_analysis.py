@@ -1,4 +1,6 @@
 import pytest
+from io import BytesIO
+from docx import Document
 
 from app.analysis import analyze_text, sections_from_text
 from test_extract import client, docx, pdf, MAX_FILE_SIZE
@@ -65,3 +67,46 @@ def test_invalid_uploads_match_extraction(name, data):
 
 def test_invalid_multipart():
     assert client.post("/api/cv/analyze", json={}).status_code == 400
+
+
+@pytest.mark.parametrize("marker", ["• ", "- ", "* ", "1. ", "2) "])
+def test_bullet_formats_and_wrapping(marker):
+    report = analyze_text(f"PROJECT EXPERIENCE\n{marker}Optimized a tool for\ncommunity library volunteers")
+    assert report["categories"]["experience"]["score"] == 100
+    assert "Found 1 explicit bullet" in report["categories"]["experience"]["explanation"]
+
+
+def test_false_bullets_and_other_section_boundary():
+    report = analyze_text("Experience\n2024-2025 Software developer\n-Responsible for work\nAwards\n- Built a project for community library volunteers")
+    assert report["categories"]["experience"]["score"] == 0
+    assert "awards" not in sections_from_text("Experience\nAwards\n- Built something")
+
+
+def test_personal_fields_do_not_change_scores():
+    base = "Education\nCoursework\nProjects\n- Developed a tool for community library volunteers\nSkills\nPython, SQL"
+    extra = "\nName: Example Person\nAge: 30\nNationality: Example\nGender: Example\nEmail: person@example.com"
+    assert analyze_text(base)["categories"] == analyze_text(base + extra)["categories"]
+
+
+def test_full_score_and_missing_sections():
+    full = "Summary\nStudent\nEducation and Training\nCoursework\nRelevant Projects\n1. Delivered a tool for community library volunteers\nSkills & Competencies: Python, SQL"
+    assert analyze_text(full)["overall_score"] == 100
+    assert analyze_text("Skills\nPython")["overall_score"] < 100
+
+
+@pytest.mark.parametrize("name,data", [("cv.pdf", pdf("EDUCATION\nStudy\nPROJECTS\n- Built a tool for local community volunteers\nSKILLS: Python, SQL")), ("cv.docx", docx("EDUCATION\nStudy\nPROJECTS\n- Built a tool for local community volunteers\nSKILLS: Python, SQL"))])
+def test_extracted_line_boundaries_reach_analysis(name, data):
+    response = client.post("/api/cv/analyze", files={"file": (name, data)})
+    assert response.status_code == 200
+    assert response.json()["categories"]["experience"]["score"] == 100
+    assert response.json()["categories"]["structure"]["score"] == 90
+
+
+def test_docx_formatted_list():
+    document = Document()
+    document.add_paragraph("Projects")
+    document.add_paragraph("Implemented a tool for community library volunteers", style="List Bullet")
+    out = BytesIO()
+    document.save(out)
+    result = client.post("/api/cv/analyze", files={"file": ("cv.docx", out.getvalue())})
+    assert result.json()["categories"]["experience"]["score"] == 100

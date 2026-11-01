@@ -2,16 +2,18 @@
 import re
 
 HEADINGS = {
-    "education": {"education", "academic background", "qualifications", "academic qualifications"},
-    "experience": {"experience", "work experience", "professional experience", "employment", "employment history", "work history", "internships", "volunteer experience"},
-    "projects": {"projects", "personal projects", "academic projects", "selected projects"},
-    "skills": {"skills", "technical skills", "key skills", "core skills", "competencies"},
-    "summary": {"summary", "professional summary", "profile", "personal profile", "objective", "career objective"},
+    "education": {"education", "academic background", "qualifications", "academic qualifications", "education and training", "education & training", "educational background"},
+    "experience": {"experience", "work experience", "professional experience", "employment", "employment history", "work history", "internships", "volunteer experience", "relevant experience", "professional background", "work and volunteer experience"},
+    "projects": {"projects", "personal projects", "academic projects", "selected projects", "project experience", "relevant projects", "coursework and projects"},
+    "skills": {"skills", "technical skills", "key skills", "core skills", "competencies", "skills and competencies", "skills & competencies", "technical competencies"},
+    "summary": {"summary", "professional summary", "profile", "personal profile", "objective", "career objective", "professional profile", "summary of qualifications"},
 }
-VERBS = set("built created developed designed implemented improved led managed organized organised delivered researched analyzed analysed tested wrote collaborated coordinated supported automated maintained deployed investigated planned produced contributed assisted presented".split())
-BULLET = re.compile(r"^\s*(?:[•●▪◦‣]|[-*–—])\s*")
+VERBS = set("built created developed designed implemented optimized optimised improved led managed organized organised delivered researched analyzed analysed tested wrote collaborated coordinated supported automated maintained deployed investigated planned produced contributed assisted presented".split())
+BULLET = re.compile(r"^\s*(?:[•●▪◦‣]\s*|[-*–—]\s+|\d{1,2}[.)]\s+)(?=\S)")
 WORDS = re.compile(r"\b[\w+#.-]+\b")
 CONTACT = re.compile(r"(?:\b[\w.+-]+@[\w.-]+\.[a-z]{2,}\b|https?://|www\.|\b(?:linkedin\.com|github\.com)/|(?<!\w)\+?\d[\d ()-]{7,}\d(?!\w))", re.I)
+PERSONAL_FIELD = re.compile(r"^(?:name|age|date of birth|dob|nationality|gender|sex|address|phone|email)\s*:", re.I)
+OTHER_HEADING = re.compile(r"^(?:awards|certifications|references|interests|hobbies|languages|publications|personal details)\s*:?$", re.I)
 
 
 def sections_from_text(text: str) -> dict[str, list[str]]:
@@ -23,14 +25,16 @@ def sections_from_text(text: str) -> dict[str, list[str]]:
             continue
         # A heading may also have its contents after a colon.
         heading, sep, content = line.partition(":")
-        candidate = heading.strip().lower() if sep else line.rstrip(": ").lower()
+        candidate = re.sub(r"\s+", " ", (heading if sep else line).strip().strip("|–— ").casefold())
         found = next((key for key, names in HEADINGS.items() if candidate in names), None)
         if found:
             current = found
             sections.setdefault(found, [])
             if sep and content.strip():
                 sections[found].append(content.strip())
-        elif current and not CONTACT.search(line):
+        elif OTHER_HEADING.fullmatch(line):
+            current = None
+        elif current and not CONTACT.search(line) and not PERSONAL_FIELD.match(line):
             sections[current].append(line)
     return sections
 
@@ -60,9 +64,17 @@ def analyze_text(text: str) -> dict:
         weaknesses.append("No education heading was recognized.")
         recommendations.append("Consider a clearly labeled education section if relevant.")
     if not optional:
-        recommendations.append("Optionally add a short summary or objective tailored to your goals.")
+        recommendations.append("No summary or objective heading was recognized; optionally add a short summary tailored to your goals.")
 
-    entries = [line for name in ("experience", "projects") for line in sections.get(name, []) if BULLET.match(line)]
+    entries = []
+    for name in ("experience", "projects"):
+        section_start = len(entries)
+        for line in sections.get(name, []):
+            if BULLET.match(line):
+                entries.append(line)
+            elif len(entries) > section_start and not re.search(r"[.!?:]$", entries[-1]) and line[:1].islower():
+                # A lowercase continuation is a conservative signal of a wrapped bullet.
+                entries[-1] += " " + line
     cleaned = [BULLET.sub("", line).strip() for line in entries]
     action = sum(bool(WORDS.findall(line)) and WORDS.findall(line)[0].lower() in VERBS for line in cleaned)
     specific = sum(len(WORDS.findall(line)) >= 6 for line in cleaned)
@@ -74,11 +86,10 @@ def analyze_text(text: str) -> dict:
     if count:
         strengths.append(f"Found {count} experience/project bullet(s); {action} start with a recognized action verb and {specific} have at least 6 words.")
         if action < count or specific < count:
-            recommendations.append("Where accurate, start bullets with action verbs and explain what you did and its context or outcome.")
+            recommendations.append(f"Of {count} recognized experience/project bullets, {action} start with a listed action verb and {specific} have at least 6 words. Where accurate, clarify what you did and its context or outcome.")
     else:
         weaknesses.append("No explicit experience/project bullets were recognized; extraction may have merged or removed bullet formatting.")
         recommendations.append("Where applicable, use clear bullets to describe projects, coursework, volunteering or work; check the extracted preview for formatting loss.")
-    recommendations.append("Include measurable outcomes only when accurate and meaningful; qualitative outcomes are useful too. Never invent numbers.")
 
     skill_lines = sections.get("skills", [])
     skill_text = " ".join(skill_lines).strip()
@@ -91,7 +102,7 @@ def analyze_text(text: str) -> dict:
         weaknesses.append("No populated skills section was recognized.")
         recommendations.append("If relevant, list skills you actually have under a clear Skills heading.")
     if skill_text and not separated:
-        recommendations.append("Consider separating skills into readable items or groups without adding skills you do not have.")
+        recommendations.append("The recognized skills content has no detected separators or multiple lines; consider grouping it without adding skills you do not have.")
 
     # Evaluate only recognized section content, excluding unclassified contact/personal details.
     lines = [line for content in sections.values() for line in content]
