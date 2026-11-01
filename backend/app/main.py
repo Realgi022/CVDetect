@@ -6,6 +6,7 @@ from starlette.datastructures import UploadFile
 from .extraction import DocumentError, extract_document
 from .analysis import analyze_text
 from .writing_insights import writing_insights
+from .writing_patterns import writing_patterns
 
 app = FastAPI(title="CVDetect API")
 
@@ -41,6 +42,7 @@ async def analyze_cv(request: Request, response: Response) -> dict:
     text = document["extracted_text"]
     report = analyze_text(text)
     report["writing_insights"] = writing_insights(text)
+    report["writing_patterns"] = writing_patterns(text)
     return report
 
 

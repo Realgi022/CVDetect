@@ -49,7 +49,7 @@ try {
       if (window.failRequest) throw new Error('offline');
       if (String(url).endsWith('/api/cv/extract')) return new Response(JSON.stringify({filename:'fictional.pdf',file_type:'pdf',character_count:17,extracted_text:'Fictional preview'}));
       if (window.failAnalysis) return new Response(JSON.stringify({detail:'Unable to analyze this CV.'}), {status:503});
-      return new Response(JSON.stringify({overall_score:75,categories:{structure:{score:80,explanation:'Structure explanation'},experience:{score:70,explanation:'Experience explanation'},skills:{score:75,explanation:'Skills explanation'},readability:{score:75,explanation:'Readability explanation'}},strengths:['Clear structure'],weaknesses:['Review details'],recommendations:['Add context'],method:'Rules have limitations.',writing_insights:window.emptyInsights ? [] : [{id:'test',type:'generic_phrase',priority:'low',explanation:'Consider wording.',recommendation:'Add context.'}]}));
+      return new Response(JSON.stringify({overall_score:75,categories:{structure:{score:80,explanation:'Structure explanation'},experience:{score:70,explanation:'Experience explanation'},skills:{score:75,explanation:'Skills explanation'},readability:{score:75,explanation:'Readability explanation'}},strengths:['Clear structure'],weaknesses:['Review details'],recommendations:['Add context'],method:'Rules have limitations.',writing_insights:window.emptyInsights ? [] : [{id:'test',type:'generic_phrase',priority:'low',explanation:'Consider wording.',recommendation:'Add context.'}],writing_patterns:{status:window.shortMetrics?'insufficient':'sufficient',coverage:{total_characters:window.shortMetrics?110000:100,analyzed_characters:window.shortMetrics?100000:100,truncated:!!window.shortMetrics,nonempty_lines:5,included_lines:4,units:4,words:window.shortMetrics?4:22,minimum_words:20,minimum_units:3},sentence_length:{distribution:[{label:'1–5 words',count:1},{label:'6–10 words',count:3},{label:'11–20 words',count:0},{label:'21+ words',count:0}],mean_words:5.25,population_stddev_words:1.3},repetition:{repeated_two_word_phrases:2,repeated_opening_groups:1,units_with_repeated_opening:2,units_with_two_word_opening:4},generic_phrases:{matched:[{phrase:'hardworking team player',unit_count:1}],units_with_match:1},specificity:{units_with_number:2,units_with_measurable_pattern:2,units_starting_action_verb:3},limitations:'Descriptive only; not AI authorship.'}}));
     };` })
   await send('Page.navigate', { url: 'http://127.0.0.1:5173/' })
   for (let i = 0; i < 100 && !await evaluate('!!document.querySelector(".dropzone")'); i++) await wait(100)
@@ -68,6 +68,10 @@ try {
   assert.match(panel, /no AI-authorship model was run by the public analysis/i)
   assert.match(panel, /placeholder, not a model inference/i)
   assert.doesNotMatch(panel, /\d+\s*%|likely\s+(AI|human)|AI[- ]generated\s*:\s*\d/i)
+  const patterns = await evaluate(`document.querySelector('.patterns-section').innerText`)
+  assert.match(patterns, /22 words[\s\S]*Unit length distribution[\s\S]*1 \/ 4[\s\S]*Repeated wording[\s\S]*hardworking team player[\s\S]*Specificity indicators/)
+  assert.match(patterns, /not AI-authorship evidence or probabilities/i)
+  assert.equal(await evaluate(`document.querySelectorAll('.patterns-section progress').length`), 4)
   assert.match(await evaluate('document.body.innerText'), /Writing observations[\s\S]*Consider wording/)
   assert.equal(await evaluate(`(() => { const a = document.querySelector('.authorship-panel'); const w = document.querySelector('.writing-section'); const q = document.querySelector('.quality-details'); return !!(a.compareDocumentPosition(w) & Node.DOCUMENT_POSITION_FOLLOWING) && !!(w.compareDocumentPosition(q) & Node.DOCUMENT_POSITION_FOLLOWING); })()`), true)
   assert.equal(await evaluate(`document.querySelector('.quality-details').open`), false)
@@ -87,10 +91,12 @@ try {
     assert.equal(overflow, false, `horizontal overflow at ${width}px`)
     console.log(`${width}px: no horizontal overflow`)
   }
-  await evaluate('window.emptyInsights = true')
+  await evaluate('window.emptyInsights = true; window.shortMetrics = true')
   await evaluate(`[...document.querySelectorAll('button')].find(b => b.textContent.includes('Analyze CV')).click()`)
   await wait(100)
   assert.match(await evaluate('document.body.innerText'), /No wording suggestions were found/)
+  assert.match(await evaluate('document.body.innerText'), /Limited text: fewer than 20 words or 3 units/)
+  assert.match(await evaluate('document.body.innerText'), /Only the first 100,000 of 110,000 extracted characters/)
   await evaluate('window.failAnalysis = true')
   await evaluate(`[...document.querySelectorAll('button')].find(b => b.textContent.includes('Analyze CV')).click()`)
   await wait(100)

@@ -1,4 +1,5 @@
 import type { Analysis } from './analyze'
+import { WritingPatterns } from './WritingPatterns'
 
 const labels: Record<string, [string, string]> = {
   structure: ['Structure', '30%'], experience: ['Experience / projects', '30%'],
@@ -10,7 +11,12 @@ const insightLabels: Record<string, string> = {
 }
 
 // This is a product-availability state, not an API result or model prediction.
-function AuthorshipAvailability() {
+function AuthorshipAvailability({ local }: { local: { status: 'loading' | 'error' | 'ready'; message?: string; score?: number } | null }) {
+  if (local) return <section className="authorship-panel" aria-labelledby="authorship-title">
+    <div className="authorship-heading"><div><p className="eyebrow">AI AUTHORSHIP ASSESSMENT · LOCAL DEVELOPMENT</p><h3 id="authorship-title">Experimental AI-class score (uncalibrated)</h3></div><span className="availability-badge">NOT YET VALIDATED</span></div>
+    <div className="authorship-status" role="status">{local.status === 'loading' ? <p>Running local experimental model…</p> : local.status === 'error' ? <p>{local.message}</p> : typeof local.score === 'number' ? <p className="authorship-status-value">{(local.score * 100).toFixed(1)}%</p> : <p>Model score unavailable.</p>}</div>
+    <p className="authorship-explanation">This synthetic, unvalidated model output is not the percentage of the document written by AI and is not a calibrated probability. It cannot determine authorship and is not suitable for hiring decisions.</p>
+  </section>
   return <section className="authorship-panel" aria-labelledby="authorship-title">
     <div className="authorship-heading"><div><p className="eyebrow">AI AUTHORSHIP ASSESSMENT</p><h3 id="authorship-title">Authorship cannot be determined</h3></div><span className="availability-badge">NOT YET VALIDATED</span></div>
     <div className="authorship-status"><p className="authorship-status-label">Assessment status</p><p className="authorship-status-value">INCONCLUSIVE</p><p>Unavailable — no AI-authorship model was run by the public analysis.</p></div>
@@ -19,7 +25,7 @@ function AuthorshipAvailability() {
   </section>
 }
 
-export function Dashboard({ report }: { report: Analysis }) {
+export function Dashboard({ report, local = null }: { report: Analysis; local?: { status: 'loading' | 'error' | 'ready'; message?: string; score?: number } | null }) {
   const groups = [
     { title: 'Strengths', description: 'What the rules recognized', items: report.strengths, icon: '✓', tone: 'strength' },
     { title: 'Improvement opportunities', description: 'Areas to review in your CV', items: report.weaknesses, empty: report.recommendations.length ? 'See the recommendations below for suggested improvements.' : 'None identified by these rules.', icon: '!', tone: 'opportunity' },
@@ -27,7 +33,8 @@ export function Dashboard({ report }: { report: Analysis }) {
   ]
   return <section aria-labelledby="analysis-title" className="dashboard">
     <div className="report-heading"><div><p role="status" className="eyebrow">03 / REVIEW COMPLETE</p><h2 id="analysis-title">Your CV review</h2><p>See the current authorship assessment status and your separate rule-based feedback.</p></div><span className="step-badge">CV REVIEW</span></div>
-    <AuthorshipAvailability />
+    <AuthorshipAvailability local={local} />
+    {report.writing_patterns && <WritingPatterns data={report.writing_patterns} />}
     {report.writing_insights != null && <section aria-labelledby="writing-insights-title" className="writing-section"><div className="section-title"><div><p className="eyebrow">RULE-BASED · NOT AUTHORSHIP EVIDENCE</p><h3 id="writing-insights-title">Writing observations</h3><p>Writing Insights offers optional wording suggestions, separate from authorship assessment and your quality score. Use only what fits your experience.</p></div></div>
       {report.writing_insights.length ? <ul className="insight-grid">{report.writing_insights.map(insight => <li key={insight.id} className="insight-card"><h4>{insightLabels[insight.type] || 'Wording suggestion'}</h4><p>{insight.explanation}</p><p><strong>Consider: </strong>{insight.recommendation}</p></li>)}</ul> : <p className="insight-empty">No wording suggestions were found by these rules. You can still review your CV for clarity and context.</p>}
       <p className="writing-disclaimer">These limited rules can miss issues or flag acceptable wording. They do not determine who wrote the text or indicate AI use.</p>

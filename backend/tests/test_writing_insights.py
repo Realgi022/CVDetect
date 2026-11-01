@@ -88,7 +88,7 @@ def test_analysis_endpoint_adds_insights_without_changing_score(name, make_docum
     assert response.headers["cache-control"] == "no-store"
     result = response.json()
     assert {item["id"] for item in result["writing_insights"]} == {"generic_team_player", "vague_contribution"}
-    assert {k: v for k, v in result.items() if k != "writing_insights"} == analyze_text(text + ("\n\nSecond paragraph" if name.endswith("docx") else ""))
+    assert {k: v for k, v in result.items() if k not in ("writing_insights", "writing_patterns")} == analyze_text(text + ("\n\nSecond paragraph" if name.endswith("docx") else ""))
     assert "extracted_text" not in result
 
 

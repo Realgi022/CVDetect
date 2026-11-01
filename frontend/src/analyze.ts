@@ -8,6 +8,16 @@ export type WritingInsight = {
   recommendation: string
 }
 
+export type WritingPatterns = {
+  status: 'sufficient' | 'insufficient'
+  coverage: { total_characters: number; analyzed_characters: number; truncated: boolean; nonempty_lines: number; included_lines: number; units: number; words: number; minimum_words: number; minimum_units: number }
+  sentence_length: { distribution: { label: string; count: number }[]; mean_words: number | null; population_stddev_words: number | null }
+  repetition: { repeated_two_word_phrases: number; repeated_opening_groups: number; units_with_repeated_opening: number; units_with_two_word_opening: number }
+  generic_phrases: { matched: { phrase: string; unit_count: number }[]; units_with_match: number }
+  specificity: { units_with_number: number; units_with_measurable_pattern: number; units_starting_action_verb: number }
+  limitations: string
+}
+
 export type Analysis = {
   overall_score: number
   categories: Record<string, { score: number; explanation: string }>
@@ -16,6 +26,7 @@ export type Analysis = {
   recommendations: string[]
   method: string
   writing_insights?: WritingInsight[]
+  writing_patterns?: WritingPatterns
 }
 
 export async function analyzeCv(file: File, signal: AbortSignal): Promise<Analysis> {

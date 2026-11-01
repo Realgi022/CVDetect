@@ -7,7 +7,9 @@ import assert from 'node:assert/strict'
 
 const file = process.env.CVDETECT_TEST_DOCX
 assert.ok(file, 'Set CVDETECT_TEST_DOCX to a fictional DOCX path.')
-const bytes = (await readFile(file)).toString('base64')
+const second = process.env.CVDETECT_TEST_DOCX_2
+assert.ok(second, 'Set CVDETECT_TEST_DOCX_2 to a second fictional DOCX path.')
+const documents = await Promise.all([file, second].map(async path => (await readFile(path)).toString('base64')))
 const profile = await mkdtemp(join(tmpdir(), 'cvdetect-real-browser-'))
 const chrome = process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
 const browser = spawn(chrome, ['--headless=new', '--disable-gpu', '--no-first-run', '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank'], { stdio: 'ignore' })
@@ -35,19 +37,20 @@ try {
   ` })
   await send('Page.navigate', { url: 'http://127.0.0.1:5173/' })
   for (let i = 0; i < 100 && !await evaluate('!!document.querySelector(".dropzone")'); i++) await wait(100)
-  await evaluate(`(() => { const bytes = Uint8Array.from(atob(${JSON.stringify(bytes)}), c => c.charCodeAt(0)); const d = new DataTransfer(); d.items.add(new File([bytes], 'fictional.docx', {type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'})); document.querySelector('.dropzone').dispatchEvent(new DragEvent('drop', {bubbles:true, dataTransfer:d})); })()`)
-  for (let i = 0; i < 100 && !await evaluate('!!document.querySelector(".local-research")'); i++) await wait(100)
-  assert.equal(await evaluate('!!document.querySelector(".local-research")'), true, 'Local mode or extraction unavailable')
-  await evaluate(`[...document.querySelectorAll('.local-research button')].find(b => b.textContent.includes('Run experimental')).click()`)
-  for (let i = 0; i < 150 && !await evaluate('!!document.querySelector(".local-research-result")'); i++) await wait(100)
-  assert.equal(await evaluate('!!document.querySelector(".local-research-result")'), true, await evaluate(`document.querySelector('.local-research').innerText`))
-  const result = await evaluate(`({text:document.querySelector('.local-research-result').innerText, score:window.researchResponse.model_diagnostic.raw_uncalibrated_decision_score, hash:window.researchResponse.model_metadata.artifact_sha256})`)
-  assert.match(result.text, /INCONCLUSIVE/)
-  assert.ok(result.text.includes(String(result.score)) && result.text.includes(result.hash))
-  assert.doesNotMatch(result.text, /\d+\s*%/)
-  await evaluate(`[...document.querySelectorAll('.local-research button')].find(b => b.textContent.includes('Clear research result')).click()`)
-  assert.equal(await evaluate('!!document.querySelector(".local-research-result")'), false)
-  console.log('Real browser: local session, file extraction, trusted artifact inference, raw score rendering and reset passed.')
+  for (const bytes of documents) {
+    await evaluate(`window.researchResponse = null; (() => { const bytes = Uint8Array.from(atob(${JSON.stringify(bytes)}), c => c.charCodeAt(0)); const d = new DataTransfer(); d.items.add(new File([bytes], 'fictional.docx', {type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'})); document.querySelector('.dropzone').dispatchEvent(new DragEvent('drop', {bubbles:true, dataTransfer:d})); })()`)
+    for (let i = 0; i < 100 && !await evaluate('!!document.querySelector(".analyze-row button")'); i++) await wait(100)
+    await evaluate(`document.querySelector('.analyze-row button').click()`)
+    for (let i = 0; i < 150 && !await evaluate('!!window.researchResponse && !!document.querySelector(".authorship-status-value")'); i++) await wait(100)
+    const result = await evaluate(`({text:document.querySelector('.authorship-panel')?.innerText, score:window.researchResponse?.model_diagnostic.ai_class_probability})`)
+    assert.equal(typeof result.score, 'number', JSON.stringify(result))
+    assert.ok(result.text.includes((result.score * 100).toFixed(1) + '%'), JSON.stringify(result))
+    for (const width of [1440, 768, 390, 320]) {
+      await send('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: false })
+      assert.equal(await evaluate('document.documentElement.scrollWidth <= innerWidth'), true, `overflow at ${width}px`)
+    }
+  }
+  console.log('Two fictional CVs: displayed scores match real backend output; responsive widths passed.')
 } finally {
   socket?.close()
   browser.kill()

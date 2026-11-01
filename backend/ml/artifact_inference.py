@@ -57,11 +57,21 @@ def infer_trusted(text):
     score = float(model.decision_function([text])[0])
     if not math.isfinite(score):
         raise RuntimeError("Invalid research score.")
+    probability = None
+    if callable(getattr(model, "predict_proba", None)):
+        values = model.predict_proba([text])
+        if getattr(values, "shape", None) != (1, 2):
+            raise RuntimeError("Invalid research probability shape.")
+        probabilities = [float(value) for value in values[0]]
+        if any(not math.isfinite(value) or not 0 <= value <= 1 for value in probabilities) or not math.isclose(sum(probabilities), 1, abs_tol=1e-6):
+            raise RuntimeError("Invalid research probabilities.")
+        probability = probabilities[list(classes).index("ai")]
     return {"status": "unvalidated_research_model", "authorship_conclusion": "inconclusive",
             "model_metadata": {"name": report["selected_model"], "model_version": report["model_version"],
                                "evidence_status": "synthetic", "artifact_sha256": expected,
                                "manifest_fingerprint": report["manifest_fingerprint"]},
             "model_diagnostic": {"raw_uncalibrated_decision_score": score,
+                                 "ai_class_probability": probability,
                                  "positive_direction": f"toward the illustrative {classes[1]} training label"},
             "limitations": ["Synthetic software-test model trained on fictional examples with illustrative, unverified labels; real-world accuracy and fairness are not established.",
                             "The raw score is not an AI-authorship probability and cannot determine who wrote text.",
