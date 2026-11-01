@@ -1,6 +1,6 @@
 # CVDetect
 
-CVDetect extracts text from uploaded PDF and DOCX CVs, previews it, and offers explainable rule-based quality guidance. A fictional AI-writing classification experiment and an explicitly opted-in localhost-only research API exist; neither is a reliable authorship detector, and the normal API and dashboard do not expose it.
+CVDetect aims to research responsible AI-authorship assessment for CV writing, with CV quality guidance as a secondary feature. **Public AI-authorship assessment is not validated or available:** the public report displays an inconclusive availability placeholder, and no authorship model runs on uploaded CVs. Today the app extracts and previews PDF/DOCX text and offers separate rule-based quality guidance and Writing Insights. A fictional classification experiment and an explicitly opted-in localhost-only research API exist; neither is a reliable authorship detector, and the public API and dashboard do not expose it.
 
 ## Requirements
 
@@ -33,7 +33,7 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:5173, choose or drop a PDF or DOCX, inspect the extracted text, and select **Analyze CV**. Analysis uploads the same file again. The header reports backend health and refreshes every 15 seconds. To use another backend URL, set `$env:VITE_API_URL = "http://localhost:8000"` before `npm run dev`. Restart Vite after changing it. CORS permits only the default local Vite origins (`localhost:5173` and `127.0.0.1:5173`); explicitly configure trusted origins in `backend/app/main.py` before deployment.
+Open http://localhost:5173, choose or drop a PDF or DOCX, inspect the extracted text, and select **Analyze CV**. Analysis uploads the same file again and returns rule-based feedback only. The prominent inconclusive authorship panel is a static unavailable-feature notice, not a result from the uploaded document; expand **Your CV quality overview** for the quality report. The header reports backend health and refreshes every 15 seconds. To use another backend URL, set `$env:VITE_API_URL = "http://localhost:8000"` before `npm run dev`. Restart Vite after changing it. CORS permits only the default local Vite origins (`localhost:5173` and `127.0.0.1:5173`); explicitly configure trusted origins in `backend/app/main.py` before deployment.
 
 ## Test
 

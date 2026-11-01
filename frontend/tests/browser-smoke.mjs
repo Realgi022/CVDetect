@@ -42,10 +42,13 @@ try {
   await send('Page.enable')
   // Deterministic mock API: the browser still exercises real React upload and drag events.
   await send('Page.addScriptToEvaluateOnNewDocument', { source: `
+    window.requestedUrls = [];
     window.fetch = async (url, options) => {
+      window.requestedUrls.push(String(url));
       if (String(url).endsWith('/api/health')) return new Response(JSON.stringify({status:'ok'}));
       if (window.failRequest) throw new Error('offline');
       if (String(url).endsWith('/api/cv/extract')) return new Response(JSON.stringify({filename:'fictional.pdf',file_type:'pdf',character_count:17,extracted_text:'Fictional preview'}));
+      if (window.failAnalysis) return new Response(JSON.stringify({detail:'Unable to analyze this CV.'}), {status:503});
       return new Response(JSON.stringify({overall_score:75,categories:{structure:{score:80,explanation:'Structure explanation'},experience:{score:70,explanation:'Experience explanation'},skills:{score:75,explanation:'Skills explanation'},readability:{score:75,explanation:'Readability explanation'}},strengths:['Clear structure'],weaknesses:['Review details'],recommendations:['Add context'],method:'Rules have limitations.',writing_insights:window.emptyInsights ? [] : [{id:'test',type:'generic_phrase',priority:'low',explanation:'Consider wording.',recommendation:'Add context.'}]}));
     };` })
   await send('Page.navigate', { url: 'http://127.0.0.1:5173/' })
@@ -58,7 +61,24 @@ try {
   assert.match(await evaluate('document.body.innerText'), /fictional.pdf[\s\S]*Fictional preview/)
   await evaluate(`[...document.querySelectorAll('button')].find(b => b.textContent.includes('Analyze CV')).click()`)
   await wait(150)
-  assert.match(await evaluate('document.body.innerText'), /Your CV quality overview[\s\S]*Writing Insights[\s\S]*Consider wording/)
+  const panel = await evaluate(`document.querySelector('.authorship-panel').innerText`)
+  assert.match(panel, /INCONCLUSIVE/)
+  assert.match(panel, /NOT YET VALIDATED/)
+  assert.match(panel, /no AI-authorship model was run/i)
+  assert.match(panel, /placeholder, not a model inference/i)
+  assert.doesNotMatch(panel, /\d+\s*%|likely\s+(AI|human)|AI[- ]generated\s*:\s*\d/i)
+  assert.match(await evaluate('document.body.innerText'), /Writing observations[\s\S]*Consider wording/)
+  assert.equal(await evaluate(`(() => { const a = document.querySelector('.authorship-panel'); const w = document.querySelector('.writing-section'); const q = document.querySelector('.quality-details'); return !!(a.compareDocumentPosition(w) & Node.DOCUMENT_POSITION_FOLLOWING) && !!(w.compareDocumentPosition(q) & Node.DOCUMENT_POSITION_FOLLOWING); })()`), true)
+  assert.equal(await evaluate(`document.querySelector('.quality-details').open`), false)
+  await evaluate(`document.querySelector('.quality-details > summary').focus()`)
+  await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 })
+  await send('Input.dispatchKeyEvent', { type: 'char', text: '\r', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 })
+  await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 })
+  assert.equal(await evaluate(`document.querySelector('.quality-details').open`), true)
+  assert.match(await evaluate(`document.querySelector('.quality-details').innerText`), /Overall quality score[\s\S]*75[\s\S]*Structure[\s\S]*80[\s\S]*Recommendations/)
+  await evaluate(`document.querySelector('.category-card details > summary').click()`)
+  assert.match(await evaluate(`document.querySelector('.category-card details').innerText`), /Structure explanation/)
+  assert.equal(await evaluate(`window.requestedUrls.some(u => /research|experimental|\.pkl|\.joblib/i.test(u))`), false)
   for (const width of [1440, 1024, 768, 390, 320]) {
     await send('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: false })
     const overflow = await evaluate('document.documentElement.scrollWidth > document.documentElement.clientWidth')
@@ -70,6 +90,12 @@ try {
   await evaluate(`[...document.querySelectorAll('button')].find(b => b.textContent.includes('Analyze CV')).click()`)
   await wait(100)
   assert.match(await evaluate('document.body.innerText'), /No wording suggestions were found/)
+  await evaluate('window.failAnalysis = true')
+  await evaluate(`[...document.querySelectorAll('button')].find(b => b.textContent.includes('Analyze CV')).click()`)
+  await wait(100)
+  assert.match(await evaluate('document.body.innerText'), /Unable to analyze this CV/)
+  assert.equal(await evaluate(`!!document.querySelector('.authorship-panel')`), false)
+  await evaluate('window.failAnalysis = false')
   await drop('invalid.txt')
   await wait(100)
   assert.match(await evaluate('document.body.innerText'), /Choose a PDF or DOCX file/)
@@ -83,7 +109,7 @@ try {
   await drop('fictional.pdf')
   await wait(100)
   assert.match(await evaluate('document.body.innerText'), /Could not connect to the backend/)
-  console.log('Drop upload, preview, analysis, insights, empty state and errors: passed (mock API)')
+  console.log('AI-first unavailable status, keyboard quality section, upload, preview, observations, empty state and errors: passed (mock API)')
 } finally {
   socket?.close()
   browser.kill()
