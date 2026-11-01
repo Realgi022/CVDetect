@@ -1,6 +1,6 @@
 # CVDetect
 
-CVDetect extracts text from uploaded PDF and DOCX CVs, previews it, and offers explainable rule-based quality guidance. An isolated offline AI-writing classification experiment exists for research only; there is no detection feature in the API or dashboard, and it cannot reliably determine authorship.
+CVDetect extracts text from uploaded PDF and DOCX CVs, previews it, and offers explainable rule-based quality guidance. A fictional AI-writing classification experiment and an explicitly opted-in localhost-only research API exist; neither is a reliable authorship detector, and the normal API and dashboard do not expose it.
 
 ## Requirements
 
@@ -82,11 +82,39 @@ The English-oriented rules match a short fixed list of standalone generic phrase
 
 Documents are sent to the configured backend, processed in memory, and not saved by the application. The selected file, extracted text and analysis are held in page state until replaced or the page is closed/reloaded, not browser storage. Avoid sharing the response or running infrastructure that logs request or response bodies. Filenames are reduced to their basename; neither filenames nor document contents are intentionally logged by the application.
 
-Scanned or image-only PDFs are not supported (no OCR); empty, encrypted, corrupt and unsupported documents are rejected. Extraction may not preserve layout, reading order, headers, text boxes or all complex DOCX content. Limits reduce resource risks but do not provide process isolation or guarantee protection from malicious parser inputs; this local development service is not hardened for public deployment. No AI analysis is performed by the application.
+Scanned or image-only PDFs are not supported (no OCR); empty, encrypted, corrupt and unsupported documents are rejected. Extraction may not preserve layout, reading order, headers, text boxes or all complex DOCX content. Limits reduce resource risks but do not provide process isolation or guarantee protection from malicious parser inputs; this local development service is not hardened for public deployment. The normal application performs no AI-writing analysis.
+
+## Local-only experimental inference API
+
+**Research only; never deploy or proxy this endpoint publicly, or use it for applicant decisions.** The normal `app.main:app` does not register the experimental endpoint, even if opt-in environment variables are set. A separate development launcher requires both server-process variables below and owns a socket bound to `127.0.0.1:8001`. It rejects requests with an Origin or forwarding headers, non-loopback ASGI peers/server addresses, and unexpected Host values; it disables proxy-header interpretation, access logs and CORS for the experimental route. Do not run it behind a reverse proxy, tunnel, port forward, public container mapping, or a server that changes ASGI peer information. Loopback checks cannot detect a local proxy that strips headers; local processes can also reach the port. These checks are defense in depth, not authentication or proof of a safe deployment. Never set these flags in production. The launcher cannot establish the identity or trustworthiness of other local processes.
+
+For an isolated local experiment, from `backend` in PowerShell (install both requirements files first):
+
+```powershell
+$env:CVDETECT_ENV = "development"
+$env:CVDETECT_EXPERIMENTAL_INFERENCE = "1"
+python -m app.dev_server
+```
+
+In another PowerShell terminal, use fictional text only:
+
+```powershell
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8001/api/experimental/writing-diagnostic -ContentType 'application/json' -Body '{"text":"Fictional project description for a local experiment."}'
+```
+
+The JSON-only route accepts a single nonempty `text` field, at most 20,000 characters and 65,536 request bytes. It is not a file-upload endpoint and does not change existing upload validation. The model is fitted lazily in memory using only the eight designated fictional smoke-training records; request text is never used for training, and neither model nor input is saved. Responses are marked `unvalidated_research_model`, always give an `inconclusive` authorship conclusion, and include a raw, uncalibrated decision score with its illustrative label direction. That score is **not a probability** and must not be used as an authorship verdict. Always abstaining is a deliberately conservative interface, not a validated threshold or evidence of safety. The model has no established real-world accuracy; see the [dataset audit](backend/ml/DATASET_AUDIT.md), [collection protocol](backend/ml/DATASET_PROTOCOL.md), and [research decision](backend/ml/RESEARCH_DECISION.md).
+
+To disable, stop the launcher with Ctrl+C and remove both variables from that terminal (`Remove-Item Env:CVDETECT_ENV, Env:CVDETECT_EXPERIMENTAL_INFERENCE`), then restart the normal server. Verify that the normal server returns 404 for the route:
+
+```powershell
+curl.exe -i -X POST http://127.0.0.1:8000/api/experimental/writing-diagnostic -H "Content-Type: application/json" -d '{"text":"fictional"}'
+```
+
+An unavailable or closed port 8001 after stopping the launcher is expected. Do not log request bodies, response bodies, or personal information in external tooling; the no-store response header does not control other infrastructure.
 
 ## Offline experimental ML baseline
 
-`backend/ml` is a standalone research smoke test, **not a reliable detector** and not connected to the service or dashboard. It trains an in-memory TF-IDF / logistic-regression pipeline on a fixed training partition, evaluates held-out records, and prints class counts, group counts, confusion matrix (rows actual, columns predicted; human then ai), precision, recall, F1 and the human-to-AI false-positive rate. The vectorizer is fitted on training data only. The experiment does not save or load models; never load untrusted pickle or joblib files, which can execute code.
+`backend/ml` is a research smoke test, **not a reliable detector** and not connected to the normal service or dashboard. The optional local-only launcher above reuses its baseline. The offline experiment trains an in-memory TF-IDF / logistic-regression pipeline on a fixed training partition, evaluates held-out records, and prints class counts, group counts, confusion matrix (rows actual, columns predicted; human then ai), precision, recall, F1 and the human-to-AI false-positive rate. The vectorizer is fitted on training data only. The experiment does not save or load models; never load untrusted pickle or joblib files, which can execute code.
 
 From `backend` in the existing virtual environment:
 
@@ -116,6 +144,7 @@ Future evaluation would require appropriately consented, representative human-wr
 ## Structure
 
 - `backend/app/main.py`: FastAPI routes, bounded multipart upload and local CORS policy.
+- `backend/app/dev_server.py` and `backend/ml/dev_inference.py`: separately launched local-only experimental inference; unavailable in the normal app.
 - `backend/app/extraction.py`: in-memory document validation and extraction.
 - `backend/app/analysis.py`: pure, rule-based quality analysis.
 - `backend/app/writing_insights.py` and `backend/tests/test_writing_insights.py`: non-scoring wording rules and tests.
