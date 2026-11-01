@@ -86,7 +86,7 @@ Scanned or image-only PDFs are not supported (no OCR); empty, encrypted, corrupt
 
 ## Local-only experimental inference API
 
-**Research only; never deploy or proxy this endpoint publicly, or use it for applicant decisions.** The normal `app.main:app` does not register the experimental endpoint, even if opt-in environment variables are set. A separate development launcher requires both server-process variables below and owns a socket bound to `127.0.0.1:8001`. It rejects requests with an Origin or forwarding headers, non-loopback ASGI peers/server addresses, and unexpected Host values; it disables proxy-header interpretation, access logs and CORS for the experimental route. Do not run it behind a reverse proxy, tunnel, port forward, public container mapping, or a server that changes ASGI peer information. Loopback checks cannot detect a local proxy that strips headers; local processes can also reach the port. These checks are defense in depth, not authentication or proof of a safe deployment. Never set these flags in production. The launcher cannot establish the identity or trustworthiness of other local processes.
+**Research only; never deploy or proxy these routes publicly, or use them for applicant decisions.** The normal `app.main:app` does not register the experimental endpoint or research page, even if opt-in environment variables are set. A separate development launcher requires both server-process variables below and owns a socket bound to `127.0.0.1:8001`. It rejects forwarding headers and non-loopback ASGI peers/server addresses and disables proxy-header interpretation and access logs. The CLI endpoint continues to reject all Origin headers. The separate browser routes require exact Host `127.0.0.1:8001`; their POST also requires exact Origin `http://127.0.0.1:8001`, a server-generated CSRF token in a custom header, and a matching signed, HttpOnly, SameSite=Strict cookie expiring after 10 minutes. Reload the page if the session expires. A restrictive CSP and no-store response headers apply; no CORS is enabled for these routes. Do not run behind a reverse proxy, tunnel, port forward, public container mapping, or a server that changes ASGI peer information. Loopback checks cannot detect a local proxy that strips headers; other local processes can also reach the port. These browser defenses are not authentication and do not protect against malicious local processes or compromised browsers. Never set these flags in production.
 
 For an isolated local experiment, from `backend` in PowerShell (install both requirements files first):
 
@@ -96,7 +96,9 @@ $env:CVDETECT_EXPERIMENTAL_INFERENCE = "1"
 python -m app.dev_server
 ```
 
-In another PowerShell terminal, use fictional text only:
+Open **http://127.0.0.1:8001/research** in a browser. Manually enter fictional CV-style text only, select **Run Experimental Analysis**, and inspect the inconclusive result and limitations. Do not paste real CVs, names, contact details, or personal information. The UI has no upload connection and cannot verify whether text is fictional; this depends on the user. Try empty input for validation, or stop the launcher before submitting to check the network-error state. The page is not part of the public React build. Input and output are not intentionally saved by the application, but browsers or external tools may retain form data, screenshots, or logs; use a private environment and avoid sensitive text.
+
+Alternatively, in another PowerShell terminal, use the existing CLI endpoint with fictional text only:
 
 ```powershell
 Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8001/api/experimental/writing-diagnostic -ContentType 'application/json' -Body '{"text":"Fictional project description for a local experiment."}'
@@ -145,6 +147,7 @@ Future evaluation would require appropriately consented, representative human-wr
 
 - `backend/app/main.py`: FastAPI routes, bounded multipart upload and local CORS policy.
 - `backend/app/dev_server.py` and `backend/ml/dev_inference.py`: separately launched local-only experimental inference; unavailable in the normal app.
+- `backend/app/research_ui/` and `backend/tests/test_research_browser.py`: separately served local research page and browser-boundary tests.
 - `backend/app/extraction.py`: in-memory document validation and extraction.
 - `backend/app/analysis.py`: pure, rule-based quality analysis.
 - `backend/app/writing_insights.py` and `backend/tests/test_writing_insights.py`: non-scoring wording rules and tests.
