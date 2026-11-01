@@ -13,21 +13,31 @@
     <p class="eyebrow">CVDetect · Local research only</p>
     <h1>Experimental writing diagnostic</h1>
     <p class="intro">Explore an unvalidated model in a private, local experiment. This is not an authorship detector: writing style cannot prove who wrote text.</p>
-    <aside><strong>Fictional text only.</strong> Do not enter real CVs, names, emails, phone numbers, or other personal information. This page does not receive uploaded CVs.</aside>
+    <aside><strong>Fictional or expressly authorized test documents only.</strong> Do not upload real CVs or personal information for this demo. The page cannot verify authorization or whether text is fictional.</aside>
     <section class="card" aria-labelledby="input-title">
-      <h2 id="input-title">Try a fictional example</h2>
-      <p>The model was trained on eight fictional records with illustrative labels. Its real-world accuracy and fairness are not established.</p>
+      <h2 id="input-title">Upload and review a fictional CV</h2>
+      <p>Extract a PDF or DOCX first, then explicitly run the trusted-artifact diagnostic. Nothing is saved by the application.</p>
+      <form id="upload-form" autocomplete="off">
+        <label for="file">Choose a fictional PDF or DOCX</label>
+        <input id="file" name="file" type="file" accept=".pdf,.docx" required aria-describedby="file-help">
+        <p class="help" id="file-help">One file, maximum 5 MB; extracted text is limited to 20,000 characters.</p>
+        <button id="extract" type="submit">Extract text for preview</button>
+      </form>
+      <p>Alternatively, enter fictional text manually. The original diagnostic uses the separate eight-example in-memory baseline.</p>
       <form id="form" novalidate autocomplete="off">
-        <label for="text">Manually enter fictional CV-style text</label>
+        <label for="text">Extracted preview or fictional CV-style text</label>
         <textarea id="text" rows="8" required spellcheck="false" autocomplete="off" aria-describedby="input-help"></textarea>
         <p class="help" id="input-help">Maximum 20,000 characters. Input and results are not saved by this application.</p>
         <button id="run" type="submit">Run Experimental Analysis</button>
+        <button id="artifact-run" type="button">Run trusted artifact diagnostic</button>
+        <button id="reset" type="button" class="secondary">Reset and clear preview</button>
       </form>
       <p id="status" role="status" aria-live="polite"></p>
       <section id="result" class="result" hidden aria-labelledby="result-title">
         <h2 id="result-title">Research diagnostic</h2>
         <div class="conclusion"><span>Authorship conclusion</span><strong id="conclusion"></strong></div>
         <div class="score-card">
+          <p id="model-info"></p>
           <p class="score-label">Raw uncalibrated decision score <span>(rounded to 3 decimal places)</span></p>
           <p class="score" id="score"></p>
           <p id="direction"></p>

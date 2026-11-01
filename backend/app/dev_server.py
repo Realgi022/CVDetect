@@ -14,12 +14,14 @@ from fastapi.responses import HTMLResponse, JSONResponse, Response
 from starlette.concurrency import run_in_threadpool
 import uvicorn
 
-from .main import app as normal_app
+from .main import app as normal_app, extract_upload
 
 PATH = "/api/experimental/writing-diagnostic"
 MAX_BODY_BYTES = 64 * 1024
 RESEARCH_PAGE = "/research"
 RESEARCH_API = "/research/analyze"
+RESEARCH_EXTRACT = "/research/extract"
+RESEARCH_ARTIFACT = "/research/artifact-analyze"
 RESEARCH_JS = "/research/app.js"
 RESEARCH_CSS = "/research/style.css"
 ORIGIN = "http://127.0.0.1:8001"
@@ -63,7 +65,7 @@ class ResearchSessions:
             return False
 
 
-async def _diagnostic(request: Request):
+async def _diagnostic(request: Request, *, artifact=False):
     if request.headers.get("content-type", "").split(";", 1)[0].strip().lower() != "application/json":
         raise HTTPException(415, "Expected application/json.")
     body = bytearray()
@@ -78,12 +80,15 @@ async def _diagnostic(request: Request):
     if not isinstance(payload, dict) or set(payload) != {"text"} or not isinstance(payload["text"], str):
         raise HTTPException(400, "Provide only a text string.")
     try:
-        from ml.dev_inference import infer
+        if artifact:
+            from ml.artifact_inference import infer_trusted as infer
+        else:
+            from ml.dev_inference import infer
         return await run_in_threadpool(infer, payload["text"])
     except ValueError:
         raise HTTPException(400, "Invalid text or research model configuration.") from None
     except Exception:
-        raise HTTPException(503, "Local research model unavailable.") from None
+        raise HTTPException(503, "Trusted local research artifact unavailable; see the local demo guide." if artifact else "Local research model unavailable.") from None
 
 
 def _loopback(address):
@@ -112,9 +117,9 @@ def create_development_app() -> FastAPI:
 
     @dev_app.middleware("http")
     async def gate_experiment(request: Request, call_next):
-        if request.url.path in (RESEARCH_PAGE, RESEARCH_API, RESEARCH_JS, RESEARCH_CSS):
+        if request.url.path in (RESEARCH_PAGE, RESEARCH_API, RESEARCH_EXTRACT, RESEARCH_ARTIFACT, RESEARCH_JS, RESEARCH_CSS):
             origins = request.headers.getlist("origin")
-            allowed_origin = origins == [ORIGIN] if request.url.path == RESEARCH_API else (not origins or origins == [ORIGIN])
+            allowed_origin = origins == [ORIGIN] if request.url.path in (RESEARCH_API, RESEARCH_EXTRACT, RESEARCH_ARTIFACT) else (not origins or origins == [ORIGIN])
             if not _browser_local(request) or not allowed_origin:
                 response = JSONResponse({"detail": "Not found."}, status_code=404)
             else:
@@ -150,12 +155,29 @@ def create_development_app() -> FastAPI:
     async def research_css():
         return Response((ASSETS / "style.css").read_text(encoding="utf-8"), media_type="text/css")
 
-    @dev_app.post(RESEARCH_API, include_in_schema=False)
-    async def research_analyze(request: Request):
+    def require_session(request: Request):
         tokens = request.headers.getlist("x-csrf-token")
         if len(tokens) != 1 or not sessions.valid(request.cookies.get("research_session", ""), tokens[0]):
             raise HTTPException(403, "Session expired or invalid; reload the research page.")
+
+    @dev_app.post(RESEARCH_API, include_in_schema=False)
+    async def research_analyze(request: Request):
+        require_session(request)
         return await _diagnostic(request)
+
+    @dev_app.post(RESEARCH_EXTRACT, include_in_schema=False)
+    async def research_extract(request: Request):
+        require_session(request)
+        document = await extract_upload(request)
+        from ml.dev_inference import MAX_TEXT_CHARS
+        if len(document["extracted_text"]) > MAX_TEXT_CHARS:
+            raise HTTPException(422, "Extracted text exceeds the 20,000-character research limit.")
+        return {"extracted_text": document["extracted_text"], "character_count": document["character_count"]}
+
+    @dev_app.post(RESEARCH_ARTIFACT, include_in_schema=False)
+    async def research_artifact(request: Request):
+        require_session(request)
+        return await _diagnostic(request, artifact=True)
 
     dev_app.mount("/", normal_app)
     return dev_app

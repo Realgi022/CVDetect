@@ -21,13 +21,17 @@ def _fictional_model():
     return train(training, test)
 
 
-def infer(text: str) -> dict:
+def validate_text(text: str):
     if not isinstance(text, str) or not text.strip() or not any(char.isalnum() for char in text):
         raise ValueError("Text must contain at least one letter or number.")
     if len(text) > MAX_TEXT_CHARS:
         raise ValueError("Text exceeds the local research limit.")
     if any(0xD800 <= ord(char) <= 0xDFFF for char in text):
         raise ValueError("Text contains invalid Unicode.")
+
+
+def infer(text: str) -> dict:
+    validate_text(text)
     model = _fictional_model()
     score = float(model.decision_function([text])[0])
     positive = str(model.named_steps["classifier"].classes_[1])

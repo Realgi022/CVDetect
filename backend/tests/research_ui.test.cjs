@@ -8,14 +8,14 @@ const path = require('node:path');
 const source = fs.readFileSync(path.join(__dirname, '../app/research_ui/app.js'), 'utf8');
 function page(fetch) {
   const elements = {};
-  for (const id of ['form', 'text', 'run', 'status', 'result', 'conclusion', 'score', 'direction', 'limitations']) {
+  for (const id of ['form', 'text', 'run', 'status', 'result', 'conclusion', 'score', 'direction', 'limitations', 'upload-form', 'file', 'extract', 'artifact-run', 'reset', 'model-info']) {
     elements[id] = { value: '', textContent: '', hidden: false, disabled: false, children: [],
-      addEventListener(_, handler) { this.submit = handler; }, setAttribute() {}, removeAttribute() {},
+      addEventListener(event, handler) { this[event] = handler; }, setAttribute() {}, removeAttribute() {},
       replaceChildren() { this.children = []; }, appendChild(item) { this.children.push(item); } };
   }
   const document = { getElementById: id => elements[id], querySelector: () => ({ content: 'token' }),
     createElement: () => ({ textContent: '' }) };
-  vm.runInNewContext(source, { document, fetch });
+  vm.runInNewContext(source, { document, fetch, AbortController, FormData });
   return { elements, submit: () => elements.form.submit({ preventDefault() {} }) };
 }
 const result = { status: 'unvalidated_research_model', authorship_conclusion: 'inconclusive',
@@ -35,6 +35,38 @@ test('validation rejects empty, whitespace and over-limit input, accepts the bou
   p.elements.text.value = 'x'.repeat(20000);
   await p.submit();
   assert.equal(calls, 1);
+});
+
+test('reset clears preview and results and ignores a pending response', async () => {
+  let resolve;
+  const p = page(() => new Promise(r => { resolve = r; }));
+  p.elements.text.value = 'fictional';
+  const pending = p.submit();
+  p.elements.reset.click();
+  resolve(response(result));
+  await pending;
+  assert.equal(p.elements.text.value, '');
+  assert.equal(p.elements.result.hidden, true);
+  assert.match(p.elements.status.textContent, /cleared/);
+  assert.equal(p.elements.run.disabled, false);
+});
+
+test('upload preview and artifact diagnostic are explicit and resettable', async () => {
+  const seen = [];
+  const artifact = { ...result, model_metadata: { name: 'linear_svm', model_version: 'research-comparison-v1', evidence_status: 'synthetic', artifact_sha256: 'a'.repeat(64), manifest_fingerprint: 'b'.repeat(64) } };
+  const p = page(async url => { seen.push(url); return response(url.endsWith('/extract') ? { extracted_text: 'Fictional preview', character_count: 17 } : artifact); });
+  p.elements.file.files = [new File(['fictional'], 'example.docx')];
+  await p.elements['upload-form'].submit({ preventDefault() {} });
+  assert.equal(p.elements.text.value, 'Fictional preview');
+  assert.deepEqual(seen, ['/research/extract']);
+  await p.elements['artifact-run'].click();
+  assert.deepEqual(seen, ['/research/extract', '/research/artifact-analyze']);
+  assert.equal(p.elements.conclusion.textContent, 'INCONCLUSIVE');
+  assert.match(p.elements['model-info'].textContent, /Synthetic, unvalidated model: linear_svm/);
+  p.elements.reset.click();
+  assert.equal(p.elements.text.value, '');
+  assert.equal(p.elements['model-info'].textContent, '');
+  assert.equal(p.elements.result.hidden, true);
 });
 
 test('renders rounded score, direction and limitations as text without changing response', async () => {
