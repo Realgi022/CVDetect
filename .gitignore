@@ -24,3 +24,6 @@ uploaded_cvs/
 # Put any locally collected research data here; never commit personal CVs.
 backend/ml/private_data/
 backend/ml/artifacts/
+# Local CV research text must not be added accidentally; only fictional fixtures are allowed.
+backend/ml/**/*.txt
+!backend/ml/fixtures/cv_collection/*.txt
