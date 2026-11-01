@@ -57,7 +57,7 @@ The JSON response contains `filename`, `file_type` (`pdf` or `docx`), `character
 curl.exe -X POST -F "file=@C:\path\to\cv.docx" http://localhost:8000/api/cv/analyze
 ```
 
-The response has `overall_score`, `categories` (each with a score and calculation explanation), `strengths`, `weaknesses`, `recommendations`, and `method`. Scores are heuristic guidance, **not hiring suitability or ATS certification**. The overall score is the rounded weighted sum of the rounded category scores:
+The response has `overall_score`, `categories` (each with a score and calculation explanation), `strengths`, `weaknesses`, `recommendations`, `method`, and the additive `writing_insights` array. Clients can treat `writing_insights` as optional for compatibility with older servers. Scores are heuristic guidance, **not hiring suitability or ATS certification**. The overall score is the rounded weighted sum of the rounded category scores:
 
 - **Structure (30%):** 30 points for a recognized education heading, 40 for experience or projects, 20 for skills and 10 for an optional summary. Projects count equally with experience, including for students.
 - **Experience/projects (30%):** explicit bullets under those headings earn 20 points if present, plus up to 40 each for the fraction starting with a recognized action verb and the fraction with at least six words (a length heuristic, not proof of an achievement). Recognizable numerical outcomes are counted but never affect the score; they are not verified. Qualitative outcomes matter too; never invent metrics.
@@ -67,6 +67,16 @@ The response has `overall_score`, `categories` (each with a score and calculatio
 Heading matching is case-insensitive and uses a fixed list of common variations, with optional inline content after a colon. Bullet markers include common symbols and numbered lists; an immediately following lowercase line after an unfinished bullet is treated as a possible continuation. PDF line breaks and common DOCX formatted lists are preserved where possible. Some layouts, custom lists, uppercase wrapped lines, multi-column reading order, missing glyphs, and unrecognized headings or verbs will still be missed or misread; unrecognized content is not evidence that it is absent. Numbered lists in a recognized practical section may be mistaken for bullets. These are English-oriented presentation heuristics, not validation of achievements. Synthetic fixtures cover five profiles but do not establish accuracy or fairness on real CVs.
 
 The rules do not intentionally score demographics, names, school prestige, or contact details; recognizable contact lines and labeled personal fields are excluded. Unusual layouts or unlabeled personal information may still be treated as content, so complete independence from personal details cannot be guaranteed. The rules cannot verify claims, measure ability, infer missing facts, or understand all languages and layouts. Section recognition and line/bullet boundaries can be lost during extraction; scores may therefore underestimate a CV. Review the preview and interpret recommendations in context, not as requirements.
+
+### Writing Insights
+
+Writing Insights provides optional, deterministic wording suggestions **separately from the existing quality score**; it never changes category weights or deducts points. The existing analysis response includes up to five insights in fixed rule order, each with a stable `id`, `type`, `priority`, `explanation`, and `recommendation`; an empty array means the limited rules found no matches, not that the CV is perfect. The feature does not return snippets or document text. For example, a standalone “hardworking team player” in a recognized summary produces:
+
+```json
+{"id":"generic_team_player","type":"generic_phrase","priority":"low","explanation":"A standalone familiar phrase gives little context about your contribution.","recommendation":"If relevant, replace it with a specific task or example you can accurately describe."}
+```
+
+The English-oriented rules match a short fixed list of standalone generic phrases in recognized summaries or explicit experience/project bullets; flag a few standalone vague duty descriptions in those bullets; and flag a repeated two-word opening when at least three **distinct** bullets in the same experience or projects section share it. They do not require numerical metrics, make up achievements, or assess authorship. Suggestions are optional and should only reflect real experience. The rules can miss issues, flag acceptable wording, or miss/misinterpret sections, lists and wrapped lines due to extraction and layout. Concise technical writing, student projects, and professional tone are not in themselves problems. This is not AI-authorship detection and does not use the experimental ML model.
 
 ## Privacy and limitations
 
@@ -108,6 +118,7 @@ Future evaluation would require appropriately consented, representative human-wr
 - `backend/app/main.py`: FastAPI routes, bounded multipart upload and local CORS policy.
 - `backend/app/extraction.py`: in-memory document validation and extraction.
 - `backend/app/analysis.py`: pure, rule-based quality analysis.
+- `backend/app/writing_insights.py` and `backend/tests/test_writing_insights.py`: non-scoring wording rules and tests.
 - `backend/tests/test_extract.py`: API and extraction tests.
 - `backend/tests/test_analysis.py`: analysis and upload validation tests.
 - `backend/tests/fixtures/synthetic_cvs.json` and `backend/tests/test_synthetic_profiles.py`: fictional profiles and deterministic validation checks.

@@ -5,6 +5,7 @@ from starlette.datastructures import UploadFile
 
 from .extraction import DocumentError, extract_document
 from .analysis import analyze_text
+from .writing_insights import writing_insights
 
 app = FastAPI(title="CVDetect API")
 
@@ -37,7 +38,10 @@ async def extract_cv(request: Request, response: Response) -> dict:
 async def analyze_cv(request: Request, response: Response) -> dict:
     response.headers["Cache-Control"] = "no-store"
     document = await extract_upload(request)
-    return analyze_text(document["extracted_text"])
+    text = document["extracted_text"]
+    report = analyze_text(text)
+    report["writing_insights"] = writing_insights(text)
+    return report
 
 
 async def extract_upload(request: Request) -> dict:

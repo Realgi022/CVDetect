@@ -118,7 +118,7 @@ export default function App() {
         <div className="mt-20 grid gap-5 border-t border-slate-200 pt-10 sm:grid-cols-3">
           <div><p className="text-sm font-semibold text-slate-900">Clarity, not guesswork</p><p className="mt-2 text-sm leading-6 text-slate-500">Rule-based CV quality feedback helps you review how you communicate your experience.</p></div>
           <div><p className="text-sm font-semibold text-slate-900">Privacy in mind</p><p className="mt-2 text-sm leading-6 text-slate-500">Documents are uploaded for extraction but not saved. The preview stays on this page.</p></div>
-          <div><p className="text-sm font-semibold text-slate-900">Responsible by design</p><p className="mt-2 text-sm leading-6 text-slate-500">AI-writing detection is upcoming, experimental, and cannot reliably identify who wrote a text.</p></div>
+          <div><p className="text-sm font-semibold text-slate-900">Responsible by design</p><p className="mt-2 text-sm leading-6 text-slate-500">Writing suggestions focus on clarity, not determining who wrote your CV.</p></div>
         </div>
       </main>
       <footer className="border-t border-slate-200 px-5 py-6 text-center text-xs text-slate-500">CVDetect · Built for your next chapter</footer>

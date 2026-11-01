@@ -5,6 +5,12 @@ const labels: Record<string, [string, string]> = {
   skills: ['Skills', '20%'], readability: ['Readability', '20%'],
 }
 
+const insightLabels: Record<string, string> = {
+  generic_phrase: 'Generic phrase',
+  vague_description: 'Clarify a contribution',
+  repeated_opening: 'Repeated bullet opening',
+}
+
 export function Dashboard({ report }: { report: Analysis }) {
   const groups = [
     { title: 'Strengths', description: 'What the rules recognized', items: report.strengths, tone: 'border-emerald-200 bg-emerald-50/60', marker: 'text-emerald-700', icon: '✓' },
@@ -27,6 +33,16 @@ export function Dashboard({ report }: { report: Analysis }) {
         <details className="mt-3 text-sm leading-6 text-slate-600"><summary className="cursor-pointer font-semibold text-indigo-700">How this is scored</summary><p className="mt-2 break-words">{item.explanation}</p></details>
       </div>)}</div>
       <div className="mt-6 grid gap-4">{groups.map(group => <section key={group.title} className={`rounded-xl border p-4 sm:p-5 ${group.tone}`}><div className="flex items-start gap-3"><span aria-hidden="true" className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white font-bold ${group.marker}`}>{group.icon}</span><div className="min-w-0"><h4 className="font-bold text-slate-900">{group.title}</h4><p className="mt-0.5 text-xs text-slate-600">{group.description}</p>{group.items.length ? <ul className="mt-3 list-disc space-y-3 break-words pl-4 text-sm leading-6 text-slate-700">{group.items.map((item, i) => <li key={i}>{item}</li>)}</ul> : <p className="mt-3 text-sm text-slate-600">{group.empty || 'None identified by these rules.'}</p>}</div></div></section>)}</div>
+      {report.writing_insights != null && <section aria-labelledby="writing-insights-title" className="mt-6 rounded-xl border border-violet-200 bg-violet-50/50 p-4 sm:p-5">
+        <h4 id="writing-insights-title" className="font-bold text-slate-900">Writing Insights</h4>
+        <p className="mt-1 text-sm leading-6 text-slate-600">Optional wording suggestions, separate from your score. Use only what fits your experience.</p>
+        {report.writing_insights.length ? <ul className="mt-4 grid gap-3 sm:grid-cols-2">{report.writing_insights.map(insight => <li key={insight.id} className="min-w-0 rounded-lg border border-violet-100 bg-white p-4 text-sm leading-6 text-slate-700">
+          <h5 className="font-semibold text-violet-800">{insightLabels[insight.type] || 'Wording suggestion'}</h5>
+          <p className="mt-1 break-words">{insight.explanation}</p>
+          <p className="mt-2 break-words"><span className="font-semibold text-slate-900">Consider: </span>{insight.recommendation}</p>
+        </li>)}</ul> : <p className="mt-3 text-sm leading-6 text-slate-700">No wording suggestions were found by these rules. You can still review your CV for clarity and context.</p>}
+        <p className="mt-4 text-xs leading-5 text-slate-500">These limited rules can miss issues or flag acceptable wording. They do not determine who wrote the text.</p>
+      </section>}
       <details className="mt-6 border-t border-slate-200 pt-4 text-sm leading-6 text-slate-600"><summary className="cursor-pointer font-semibold text-indigo-700">About this analysis and its limitations</summary><p className="mt-2">{report.method}</p></details>
     </div>
   </section>

@@ -1,5 +1,13 @@
 import { apiUrl } from './health'
 
+export type WritingInsight = {
+  id: string
+  type: string
+  priority: string
+  explanation: string
+  recommendation: string
+}
+
 export type Analysis = {
   overall_score: number
   categories: Record<string, { score: number; explanation: string }>
@@ -7,6 +15,7 @@ export type Analysis = {
   weaknesses: string[]
   recommendations: string[]
   method: string
+  writing_insights?: WritingInsight[]
 }
 
 export async function analyzeCv(file: File, signal: AbortSignal): Promise<Analysis> {
