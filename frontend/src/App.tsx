@@ -24,7 +24,7 @@ function ConnectionStatus() {
   }, [])
 
   const label = { checking: 'Checking connection', connected: 'Backend connected', offline: 'Backend offline' }[status]
-  return <div role="status" className="flex items-center gap-2 text-xs font-medium text-slate-500"><span className={`h-2 w-2 rounded-full ${status === 'connected' ? 'bg-emerald-500' : status === 'offline' ? 'bg-rose-400' : 'bg-amber-400'}`} />{label}</div>
+  return <div role="status" className="connection"><span aria-hidden="true" className={`connection-dot ${status}`} />{label}</div>
 }
 
 function UploadPreview() {
@@ -33,6 +33,7 @@ function UploadPreview() {
   const [error, setError] = useState('')
   const [result, setResult] = useState<Extraction | null>(null)
   const [file, setFile] = useState<File | null>(null)
+  const [selectedName, setSelectedName] = useState('')
   const [report, setReport] = useState<Analysis | null>(null)
   const [analyzing, setAnalyzing] = useState(false)
   const [analysisError, setAnalysisError] = useState('')
@@ -49,6 +50,7 @@ function UploadPreview() {
     setAnalysisError('')
     setError('')
     setLoading(false)
+    setSelectedName(file.name)
     if (!/\.(pdf|docx)$/i.test(file.name)) { setError('Choose a PDF or DOCX file.'); return }
     if (file.size > 5 * 1024 * 1024) { setError('File must be 5 MB or smaller.'); return }
     if (!file.size) { setError('The file is empty.'); return }
@@ -82,46 +84,40 @@ function UploadPreview() {
     }
   }
   return (
-    <section aria-labelledby="upload-title" className="rounded-3xl border border-slate-200 bg-white p-5 shadow-xl shadow-slate-200/60 sm:p-8">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div><h2 id="upload-title" className="text-xl font-semibold tracking-tight text-slate-900">Your CV, ready for review</h2><p className="mt-1 text-sm text-slate-500">A little clarity for your next opportunity.</p></div>
-        <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">Text extraction</span>
-      </div>
-      <div onDragOver={event => { event.preventDefault(); setDragging(true) }} onDragLeave={() => setDragging(false)} onDrop={event => { event.preventDefault(); setDragging(false); if (event.dataTransfer.files.length === 1) void upload(event.dataTransfer.files[0]); else setError('Choose exactly one file.') }} className={`mt-7 rounded-2xl border-2 border-dashed ${dragging ? 'border-indigo-400 bg-indigo-50' : 'border-slate-200 bg-slate-50/70'} px-5 py-10 text-center`}>
-        <div aria-hidden="true" className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-100 text-2xl text-indigo-700">↑</div>
-        <p className="mt-5 font-semibold text-slate-800">Drop your CV here</p>
-        <p className="mt-2 text-sm text-slate-500">PDF or DOCX · up to 5 MB</p>
-        <input ref={input} type="file" accept=".pdf,.docx" className="sr-only" aria-label="Choose a CV file" onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) void upload(file) }} />
-        <button type="button" onClick={() => input.current?.click()} className="mt-6 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white hover:bg-indigo-700">Choose a file</button>
-        <p className="mt-4 text-xs text-slate-500">Your document is processed in memory and is not saved.</p>
-      </div>
-      {loading && <p role="status" className="mt-4 text-sm text-indigo-700">Uploading and extracting text…</p>}
-      {error && <p role="alert" className="mt-4 text-sm text-rose-700">{error}</p>}
-      {result && <div className="mt-6"><p role="status" className="text-sm font-semibold text-emerald-700">Text extracted successfully · {result.character_count.toLocaleString()} characters</p><h3 className="mt-4 text-sm font-semibold text-slate-900">Extracted text preview</h3><div className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700">{result.extracted_text}</div></div>}
-      {result && <button type="button" disabled={analyzing} onClick={() => void analyze()} className="mt-5 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60">{analyzing ? 'Analyzing…' : 'Analyze CV'}</button>}
-      {analyzing && <p role="status" className="mt-3 text-sm text-indigo-700">Analyzing your CV…</p>}
-      {analysisError && <p role="alert" className="mt-3 text-sm text-rose-700">{analysisError}</p>}
+    <>
+      <section id="upload" aria-labelledby="upload-title" className="workspace">
+        <div className="workspace-heading"><div><p className="eyebrow">YOUR WORKSPACE</p><h2 id="upload-title">Start with your CV</h2><p>Upload a document to preview its text and get feedback.</p></div><span className="step-badge">01 / UPLOAD</span></div>
+        <div onDragOver={event => { event.preventDefault(); setDragging(true) }} onDragLeave={() => setDragging(false)} onDrop={event => { event.preventDefault(); setDragging(false); if (event.dataTransfer.files.length === 1) void upload(event.dataTransfer.files[0]); else setError('Choose exactly one file.') }} className={`dropzone ${dragging ? 'dragging' : ''}`}>
+          <div aria-hidden="true" className="upload-icon">↑</div>
+          <p className="drop-title">Drop your CV here, or choose a file</p>
+          <p className="drop-caption">PDF or DOCX · maximum 5 MB</p>
+          <input ref={input} type="file" accept=".pdf,.docx" className="sr-only" tabIndex={-1} aria-label="Choose a CV file" onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) void upload(file) }} />
+          <button type="button" onClick={() => input.current?.click()} className="button button-secondary">Choose a file</button>
+          <p className="privacy-note">Processed in memory by the configured backend; not saved by the application.</p>
+        </div>
+        {selectedName && <p className="selected-file"><strong>Selected file:</strong> <span>{selectedName}</span></p>}
+        {loading && <p role="status" className="feedback">Uploading and extracting text…</p>}
+        {error && <p role="alert" className="feedback error">{error}</p>}
+        {result && <div className="preview"><div className="preview-heading"><div><p className="eyebrow">02 / REVIEW</p><h3>Extracted text preview</h3></div><p role="status" className="success">Text extracted · {result.character_count.toLocaleString()} characters</p></div><p className="preview-help">Check that the text was extracted correctly before analyzing.</p><div tabIndex={0} aria-label="Extracted text preview" className="preview-text">{result.extracted_text}</div></div>}
+        {result && <div className="analyze-row"><button type="button" disabled={analyzing} onClick={() => void analyze()} className="button button-primary">{analyzing ? 'Analyzing…' : 'Analyze CV'} <span aria-hidden="true">→</span></button><p>The same file is uploaded again for analysis.</p></div>}
+        {analyzing && <p role="status" className="feedback">Analyzing your CV…</p>}
+        {analysisError && <p role="alert" className="feedback error">{analysisError}</p>}
+      </section>
       {report && <Dashboard report={report} />}
-    </section>
+    </>
   )
 }
 
 export default function App() {
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-900">
-      <header className="border-b border-slate-200/80 bg-white/80"><div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-5 sm:px-8"><a href="/" className="flex items-center gap-2.5 text-lg font-bold tracking-tight"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-sm text-white">CV</span>CVDetect</a><ConnectionStatus /></div></header>
-      <main className="mx-auto max-w-6xl px-5 pb-20 pt-16 sm:px-8 sm:pt-24">
-        <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
-          <div><span className="inline-flex rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1.5 text-xs font-semibold tracking-wide text-indigo-700">A MORE THOUGHTFUL CV</span><h1 className="mt-6 text-4xl font-bold leading-[1.1] tracking-tight sm:text-6xl">Make your next move <span className="text-indigo-600">with confidence.</span></h1><p className="mt-6 max-w-xl text-lg leading-8 text-slate-600">A clearer CV starts with better feedback. We’re building a simple way to understand and improve yours.</p><a href="#upload-title" className="mt-8 inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700">Extract your CV text <span aria-hidden="true">→</span></a></div>
-          <UploadPreview />
-        </div>
-        <div className="mt-20 grid gap-5 border-t border-slate-200 pt-10 sm:grid-cols-3">
-          <div><p className="text-sm font-semibold text-slate-900">Clarity, not guesswork</p><p className="mt-2 text-sm leading-6 text-slate-500">Rule-based CV quality feedback helps you review how you communicate your experience.</p></div>
-          <div><p className="text-sm font-semibold text-slate-900">Privacy in mind</p><p className="mt-2 text-sm leading-6 text-slate-500">Documents are uploaded for extraction but not saved. The preview stays on this page.</p></div>
-          <div><p className="text-sm font-semibold text-slate-900">Responsible by design</p><p className="mt-2 text-sm leading-6 text-slate-500">Writing suggestions focus on clarity, not determining who wrote your CV.</p></div>
-        </div>
+    <div className="app-shell">
+      <header className="site-header"><div className="container header-inner"><a href="#top" className="brand"><span className="brand-mark">CV</span>CVDetect</a><nav aria-label="Main navigation" className="nav-links"><a href="#upload">Analyze CV</a><a href="#how-it-works">How it works</a></nav><ConnectionStatus /></div></header>
+      <main id="top" className="container main-content">
+        <section className="hero" aria-labelledby="hero-title"><div><p className="eyebrow"><span aria-hidden="true">✦</span> THOUGHTFUL CV FEEDBACK</p><h1 id="hero-title">A clearer CV starts <span>with a closer look.</span></h1><p className="hero-copy">Understand how your CV presents your experience with straightforward, rule-based feedback and practical wording suggestions.</p><a href="#upload" className="button button-primary">Get started <span aria-hidden="true">→</span></a></div><div className="hero-aside"><p className="hero-aside-label">A SIMPLE WAY TO REVIEW</p><ol><li><span>01</span> Upload your CV</li><li><span>02</span> Check the text preview</li><li><span>03</span> Explore your feedback</li></ol><p>Guidance to support your own judgment, not replace it.</p></div></section>
+        <UploadPreview />
+        <section id="how-it-works" className="how-section" aria-labelledby="how-title"><div className="section-heading"><p className="eyebrow">HOW IT WORKS</p><h2 id="how-title">A useful starting point, not a verdict.</h2></div><div className="how-grid"><div><span>01</span><h3>Review the essentials</h3><p>See rule-based feedback on structure, experience, skills and readability.</p></div><div><span>02</span><h3>Make it your own</h3><p>Consider optional wording suggestions that reflect your real experience.</p></div><div><span>03</span><h3>Keep context in mind</h3><p>Scores are guidance, not a measure of ability, hiring suitability or ATS certification.</p></div></div></section>
       </main>
-      <footer className="border-t border-slate-200 px-5 py-6 text-center text-xs text-slate-500">CVDetect · Built for your next chapter</footer>
+      <footer className="site-footer"><div className="container">CVDetect <span>·</span> Thoughtful feedback for a clearer CV.</div></footer>
     </div>
   )
 }

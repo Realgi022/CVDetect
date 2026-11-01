@@ -39,6 +39,8 @@ Open http://localhost:5173, choose or drop a PDF or DOCX, inspect the extracted 
 
 Install both `requirements.txt` and `ml/requirements.txt` to run the complete backend suite. From `backend`, run `python -m pytest -q` and `node --test tests/research_ui.test.cjs` (the latter exercises research-page JavaScript without a browser). From `frontend`, run `npm run build`. With the backend running, `Invoke-RestMethod http://localhost:8000/api/health` should return `status : ok`. Stop the backend and wait up to 15 seconds to see the frontend report it offline. The ML dependencies are not required to run the API itself.
 
+For an optional public-frontend browser smoke test, start Vite as above and run `node tests/browser-smoke.mjs` from `frontend` with Node 22+ and Chrome installed. On Windows it uses the default Chrome path; set `CHROME_PATH` to override it. The test uses a mocked API and checks drag-and-drop, preview, report states, errors and horizontal overflow at common viewport widths; it does not replace checking the real backend or manual keyboard and visual review.
+
 ## Extraction API
 
 Send one multipart field named `file` to `POST /api/cv/extract`. For example, in PowerShell (use a local test file; the response contains its text):

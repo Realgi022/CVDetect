@@ -1,4 +1,4 @@
-﻿import type { Analysis } from './analyze'
+import type { Analysis } from './analyze'
 
 const labels: Record<string, [string, string]> = {
   structure: ['Structure', '30%'], experience: ['Experience / projects', '30%'],
@@ -6,44 +6,32 @@ const labels: Record<string, [string, string]> = {
 }
 
 const insightLabels: Record<string, string> = {
-  generic_phrase: 'Generic phrase',
-  vague_description: 'Clarify a contribution',
-  repeated_opening: 'Repeated bullet opening',
+  generic_phrase: 'Generic phrase', vague_description: 'Clarify a contribution', repeated_opening: 'Repeated bullet opening',
 }
 
 export function Dashboard({ report }: { report: Analysis }) {
   const groups = [
-    { title: 'Strengths', description: 'What the rules recognized', items: report.strengths, tone: 'border-emerald-200 bg-emerald-50/60', marker: 'text-emerald-700', icon: '✓' },
-    { title: 'Improvement opportunities', description: 'Areas to review in your CV', items: report.weaknesses, empty: report.recommendations.length ? 'See the recommendations below for suggested improvements.' : 'None identified by these rules.', tone: 'border-amber-200 bg-amber-50/50', marker: 'text-amber-800', icon: '!' },
-    { title: 'Actionable recommendations', description: 'Consider these next steps', items: report.recommendations, tone: 'border-indigo-200 bg-indigo-50/50', marker: 'text-indigo-700', icon: '→' },
+    { title: 'Strengths', description: 'What the rules recognized', items: report.strengths, icon: '✓', tone: 'strength' },
+    { title: 'Improvement opportunities', description: 'Areas to review in your CV', items: report.weaknesses, empty: report.recommendations.length ? 'See the recommendations below for suggested improvements.' : 'None identified by these rules.', icon: '!', tone: 'opportunity' },
+    { title: 'Recommendations', description: 'Consider these next steps', items: report.recommendations, icon: '→', tone: 'recommendation' },
   ]
-  return <section aria-labelledby="analysis-title" className="mt-8 overflow-hidden rounded-2xl border border-indigo-100 bg-white shadow-lg shadow-indigo-100/50">
-    <div className="bg-gradient-to-br from-indigo-700 to-violet-800 p-6 text-white sm:p-8">
-      <p role="status" className="text-xs font-semibold uppercase tracking-widest text-indigo-100">Analysis complete · Rule-based guidance</p>
-      <div className="mt-4 flex flex-wrap items-end justify-between gap-5">
-        <div><h3 id="analysis-title" className="text-2xl font-bold tracking-tight">Your CV quality overview</h3><p className="mt-2 max-w-md text-sm leading-6 text-indigo-100">A starting point for reviewing how your experience is presented, not a measure of your ability.</p></div>
-        <div aria-label={`Overall score ${report.overall_score} out of 100`}><span className="text-5xl font-bold tracking-tight">{report.overall_score}</span><span className="text-lg text-indigo-100"> / 100</span><p className="mt-1 text-xs font-medium text-indigo-100">Overall score</p></div>
-      </div>
-    </div>
-    <div className="p-5 sm:p-7">
-      <h4 className="text-sm font-bold text-slate-900">Score breakdown</h4>
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">{Object.entries(report.categories).map(([key, item]) => <div key={key} className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
-        <div className="flex items-start justify-between gap-2"><div><p className="text-sm font-semibold text-slate-900">{labels[key]?.[0] || key}</p><p className="mt-1 text-xs text-slate-600">{labels[key]?.[1]} of overall</p></div><span className="text-sm font-bold text-indigo-700">{item.score}<span className="font-normal text-slate-600"> / 100</span></span></div>
-        <div role="progressbar" aria-label={`${labels[key]?.[0] || key} score`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={item.score} className="mt-4 h-2 overflow-hidden rounded-full bg-indigo-100"><div className="h-full rounded-full bg-indigo-600" style={{ width: `${item.score}%` }} /></div>
-        <details className="mt-3 text-sm leading-6 text-slate-600"><summary className="cursor-pointer font-semibold text-indigo-700">How this is scored</summary><p className="mt-2 break-words">{item.explanation}</p></details>
+  return <section aria-labelledby="analysis-title" className="dashboard">
+    <div className="report-heading"><div><p role="status" className="eyebrow">03 / ANALYSIS COMPLETE</p><h2 id="analysis-title">Your CV quality overview</h2><p>Explore your results and decide what is useful for your CV.</p></div><span className="step-badge">RULE-BASED GUIDANCE</span></div>
+    <div className="score-overview"><div className="overall-score"><p>Overall quality score</p><div aria-label={`Overall score ${report.overall_score} out of 100`}><strong>{report.overall_score}</strong><span> / 100</span></div><p>Weighted score across four categories</p></div><div className="score-context"><p className="eyebrow">UNDERSTANDING YOUR SCORE</p><h3>Feedback, not a final judgment.</h3><p>This score is heuristic guidance for reviewing presentation. It is not a measure of your ability, hiring suitability, or ATS certification.</p></div></div>
+    <div className="report-section"><div className="section-title"><div><p className="eyebrow">THE BREAKDOWN</p><h3>Scores by category</h3></div><p>Expand each card to see how it is scored.</p></div>
+      <div className="category-grid">{Object.entries(report.categories).map(([key, item]) => <div key={key} className="category-card">
+        <div className="category-top"><div><h4>{labels[key]?.[0] || key}</h4><p>{labels[key]?.[1]} of overall</p></div><p className="category-score">{item.score}<span> / 100</span></p></div>
+        <div role="progressbar" aria-label={`${labels[key]?.[0] || key} score`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={item.score} className="progress-track"><div className="progress-fill" style={{ width: `${item.score}%` }} /></div>
+        <details><summary>How this is scored</summary><p>{item.explanation}</p></details>
       </div>)}</div>
-      <div className="mt-6 grid gap-4">{groups.map(group => <section key={group.title} className={`rounded-xl border p-4 sm:p-5 ${group.tone}`}><div className="flex items-start gap-3"><span aria-hidden="true" className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white font-bold ${group.marker}`}>{group.icon}</span><div className="min-w-0"><h4 className="font-bold text-slate-900">{group.title}</h4><p className="mt-0.5 text-xs text-slate-600">{group.description}</p>{group.items.length ? <ul className="mt-3 list-disc space-y-3 break-words pl-4 text-sm leading-6 text-slate-700">{group.items.map((item, i) => <li key={i}>{item}</li>)}</ul> : <p className="mt-3 text-sm text-slate-600">{group.empty || 'None identified by these rules.'}</p>}</div></div></section>)}</div>
-      {report.writing_insights != null && <section aria-labelledby="writing-insights-title" className="mt-6 rounded-xl border border-violet-200 bg-violet-50/50 p-4 sm:p-5">
-        <h4 id="writing-insights-title" className="font-bold text-slate-900">Writing Insights</h4>
-        <p className="mt-1 text-sm leading-6 text-slate-600">Optional wording suggestions, separate from your score. Use only what fits your experience.</p>
-        {report.writing_insights.length ? <ul className="mt-4 grid gap-3 sm:grid-cols-2">{report.writing_insights.map(insight => <li key={insight.id} className="min-w-0 rounded-lg border border-violet-100 bg-white p-4 text-sm leading-6 text-slate-700">
-          <h5 className="font-semibold text-violet-800">{insightLabels[insight.type] || 'Wording suggestion'}</h5>
-          <p className="mt-1 break-words">{insight.explanation}</p>
-          <p className="mt-2 break-words"><span className="font-semibold text-slate-900">Consider: </span>{insight.recommendation}</p>
-        </li>)}</ul> : <p className="mt-3 text-sm leading-6 text-slate-700">No wording suggestions were found by these rules. You can still review your CV for clarity and context.</p>}
-        <p className="mt-4 text-xs leading-5 text-slate-500">These limited rules can miss issues or flag acceptable wording. They do not determine who wrote the text.</p>
-      </section>}
-      <details className="mt-6 border-t border-slate-200 pt-4 text-sm leading-6 text-slate-600"><summary className="cursor-pointer font-semibold text-indigo-700">About this analysis and its limitations</summary><p className="mt-2">{report.method}</p></details>
     </div>
+    <div className="report-section"><div className="section-title"><div><p className="eyebrow">YOUR FEEDBACK</p><h3>Where to focus</h3></div><p>Use these observations in the context of your experience.</p></div>
+      <div className="feedback-grid">{groups.map(group => <section key={group.title} className="feedback-card"><span aria-hidden="true" className={`feedback-icon ${group.tone}`}>{group.icon}</span><h4>{group.title}</h4><p className="card-subtitle">{group.description}</p>{group.items.length ? <ul>{group.items.map((item, i) => <li key={i}>{item}</li>)}</ul> : <p className="empty-text">{group.empty || 'None identified by these rules.'}</p>}</section>)}</div>
+    </div>
+    {report.writing_insights != null && <section aria-labelledby="writing-insights-title" className="writing-section"><div className="section-title"><div><p className="eyebrow">OPTIONAL SUGGESTIONS</p><h3 id="writing-insights-title">Writing Insights</h3><p>Wording suggestions are separate from your score. Use only what fits your experience.</p></div></div>
+      {report.writing_insights.length ? <ul className="insight-grid">{report.writing_insights.map(insight => <li key={insight.id} className="insight-card"><h4>{insightLabels[insight.type] || 'Wording suggestion'}</h4><p>{insight.explanation}</p><p><strong>Consider: </strong>{insight.recommendation}</p></li>)}</ul> : <p className="insight-empty">No wording suggestions were found by these rules. You can still review your CV for clarity and context.</p>}
+      <p className="writing-disclaimer">These limited rules can miss issues or flag acceptable wording. They do not determine who wrote the text.</p>
+    </section>}
+    <details className="method-details"><summary>About this analysis and its limitations</summary><p>{report.method}</p></details>
   </section>
 }
