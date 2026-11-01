@@ -4,6 +4,7 @@ from starlette.formparsers import MultiPartParser
 from starlette.datastructures import UploadFile
 
 from .extraction import DocumentError, extract_document
+from .analysis import analyze_text
 
 app = FastAPI(title="CVDetect API")
 
@@ -29,6 +30,17 @@ MAX_REQUEST_SIZE = MAX_FILE_SIZE + 64 * 1024
 @app.post("/api/cv/extract")
 async def extract_cv(request: Request, response: Response) -> dict:
     response.headers["Cache-Control"] = "no-store"
+    return await extract_upload(request)
+
+
+@app.post("/api/cv/analyze")
+async def analyze_cv(request: Request, response: Response) -> dict:
+    response.headers["Cache-Control"] = "no-store"
+    document = await extract_upload(request)
+    return analyze_text(document["extracted_text"])
+
+
+async def extract_upload(request: Request) -> dict:
     if not request.headers.get("content-type", "").lower().startswith("multipart/form-data"):
         raise HTTPException(400, "Expected multipart form data containing one file.")
     body = bytearray()

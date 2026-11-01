@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { checkHealth } from './health'
 import { extractCv, type Extraction } from './extract'
+import { analyzeCv, type Analysis } from './analyze'
+import { Dashboard } from './Dashboard'
 
 type Status = 'checking' | 'connected' | 'offline'
 
@@ -30,6 +32,10 @@ function UploadPreview() {
   const [dragging, setDragging] = useState(false)
   const [error, setError] = useState('')
   const [result, setResult] = useState<Extraction | null>(null)
+  const [file, setFile] = useState<File | null>(null)
+  const [report, setReport] = useState<Analysis | null>(null)
+  const [analyzing, setAnalyzing] = useState(false)
+  const [analysisError, setAnalysisError] = useState('')
   const input = useRef<HTMLInputElement>(null)
   const request = useRef<AbortController | null>(null)
   useEffect(() => () => request.current?.abort(), [])
@@ -37,6 +43,10 @@ function UploadPreview() {
   async function upload(file: File) {
     request.current?.abort()
     setResult(null)
+    setFile(null)
+    setReport(null)
+    setAnalyzing(false)
+    setAnalysisError('')
     setError('')
     setLoading(false)
     if (!/\.(pdf|docx)$/i.test(file.name)) { setError('Choose a PDF or DOCX file.'); return }
@@ -47,11 +57,28 @@ function UploadPreview() {
     setLoading(true)
     try {
       const extracted = await extractCv(file, controller.signal)
-      if (!controller.signal.aborted) setResult(extracted)
+      if (!controller.signal.aborted) { setResult(extracted); setFile(file) }
     } catch (err) {
       if (!controller.signal.aborted) setError(err instanceof Error ? err.message : 'Unable to extract text.')
     } finally {
       if (!controller.signal.aborted) setLoading(false)
+    }
+  }
+  async function analyze() {
+    if (!file) return
+    request.current?.abort()
+    const controller = new AbortController()
+    request.current = controller
+    setAnalyzing(true)
+    setAnalysisError('')
+    setReport(null)
+    try {
+      const analysis = await analyzeCv(file, controller.signal)
+      if (!controller.signal.aborted) setReport(analysis)
+    } catch (err) {
+      if (!controller.signal.aborted) setAnalysisError(err instanceof Error ? err.message : 'Unable to analyze this CV.')
+    } finally {
+      if (!controller.signal.aborted) setAnalyzing(false)
     }
   }
   return (
@@ -71,6 +98,10 @@ function UploadPreview() {
       {loading && <p role="status" className="mt-4 text-sm text-indigo-700">Uploading and extracting text…</p>}
       {error && <p role="alert" className="mt-4 text-sm text-rose-700">{error}</p>}
       {result && <div className="mt-6"><p role="status" className="text-sm font-semibold text-emerald-700">Text extracted successfully · {result.character_count.toLocaleString()} characters</p><h3 className="mt-4 text-sm font-semibold text-slate-900">Extracted text preview</h3><div className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700">{result.extracted_text}</div></div>}
+      {result && <button type="button" disabled={analyzing} onClick={() => void analyze()} className="mt-5 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60">{analyzing ? 'Analyzing…' : 'Analyze CV'}</button>}
+      {analyzing && <p role="status" className="mt-3 text-sm text-indigo-700">Analyzing your CV…</p>}
+      {analysisError && <p role="alert" className="mt-3 text-sm text-rose-700">{analysisError}</p>}
+      {report && <Dashboard report={report} />}
     </section>
   )
 }
@@ -85,7 +116,7 @@ export default function App() {
           <UploadPreview />
         </div>
         <div className="mt-20 grid gap-5 border-t border-slate-200 pt-10 sm:grid-cols-3">
-          <div><p className="text-sm font-semibold text-slate-900">Clarity, not guesswork</p><p className="mt-2 text-sm leading-6 text-slate-500">CV quality feedback is planned to help you communicate your experience.</p></div>
+          <div><p className="text-sm font-semibold text-slate-900">Clarity, not guesswork</p><p className="mt-2 text-sm leading-6 text-slate-500">Rule-based CV quality feedback helps you review how you communicate your experience.</p></div>
           <div><p className="text-sm font-semibold text-slate-900">Privacy in mind</p><p className="mt-2 text-sm leading-6 text-slate-500">Documents are uploaded for extraction but not saved. The preview stays on this page.</p></div>
           <div><p className="text-sm font-semibold text-slate-900">Responsible by design</p><p className="mt-2 text-sm leading-6 text-slate-500">AI-writing detection is upcoming, experimental, and cannot reliably identify who wrote a text.</p></div>
         </div>
