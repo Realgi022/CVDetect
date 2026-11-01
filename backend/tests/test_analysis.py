@@ -110,3 +110,36 @@ def test_docx_formatted_list():
     document.save(out)
     result = client.post("/api/cv/analyze", files={"file": ("cv.docx", out.getvalue())})
     assert result.json()["categories"]["experience"]["score"] == 100
+
+
+def test_year_range_not_mistaken_for_phone():
+    report = analyze_text("Experience\n- Managed community programs during 2020-2023")
+    assert "Found 1 explicit bullet" in report["categories"]["experience"]["explanation"]
+
+
+def test_continuation_does_not_skip_intervening_line():
+    report = analyze_text("Projects\n- Built small tools\nProject title\nfor local community volunteers")
+    assert report["categories"]["experience"]["score"] == 60
+
+
+def test_recommendations_have_corresponding_opportunities():
+    text = "Education\nStudy\nProjects\n- Responsible for tasks\nSkills\nPython\nSummary\nStudent"
+    report = analyze_text(text)
+    assert any("action verb" in item for item in report["weaknesses"])
+    assert any("skills content" in item for item in report["weaknesses"])
+    assert len(report["recommendations"]) == 2
+
+
+def test_optional_summary_has_opportunity():
+    report = analyze_text("Education\nStudy\nProjects\n- Built a tool for community library volunteers\nSkills\nPython, SQL")
+    assert any("summary" in item for item in report["weaknesses"])
+
+
+def test_docx_list_with_existing_marker_not_doubled():
+    document = Document()
+    document.add_paragraph("Projects")
+    document.add_paragraph("• Built a tool for community library volunteers", style="List Bullet")
+    out = BytesIO()
+    document.save(out)
+    result = client.post("/api/cv/analyze", files={"file": ("cv.docx", out.getvalue())})
+    assert result.json()["categories"]["experience"]["score"] == 100

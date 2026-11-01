@@ -64,7 +64,7 @@ The response has `overall_score`, `categories` (each with a score and calculatio
 - **Skills (20%):** 40 points for a heading, 40 for content and 20 for separated items or multiple lines. No specific skill is required or verified.
 - **Readability (20%):** percentage of content lines under recognized headings containing 1–40 words; no recognized content scores zero. This is a simple length check, not grammar or meaning analysis.
 
-Heading matching is case-insensitive and uses a fixed list of common variations, with optional inline content after a colon. Bullet markers include common symbols and numbered lists; a lowercase line following an unfinished bullet is treated as a possible continuation. PDF line breaks and common DOCX formatted lists are preserved where possible. Some layouts, custom lists, wrapped lines, and headings will still be missed or misread; unrecognized content is not evidence that it is absent. These are English-oriented presentation heuristics, not validation of achievements.
+Heading matching is case-insensitive and uses a fixed list of common variations, with optional inline content after a colon. Bullet markers include common symbols and numbered lists; an immediately following lowercase line after an unfinished bullet is treated as a possible continuation. PDF line breaks and common DOCX formatted lists are preserved where possible. Some layouts, custom lists, uppercase wrapped lines, multi-column reading order, missing glyphs, and unrecognized headings or verbs will still be missed or misread; unrecognized content is not evidence that it is absent. Numbered lists in a recognized practical section may be mistaken for bullets. These are English-oriented presentation heuristics, not validation of achievements. Synthetic fixtures cover five profiles but do not establish accuracy or fairness on real CVs.
 
 The rules do not intentionally score demographics, names, school prestige, or contact details; recognizable contact lines and labeled personal fields are excluded. Unusual layouts or unlabeled personal information may still be treated as content, so complete independence from personal details cannot be guaranteed. The rules cannot verify claims, measure ability, infer missing facts, or understand all languages and layouts. Section recognition and line/bullet boundaries can be lost during extraction; scores may therefore underestimate a CV. Review the preview and interpret recommendations in context, not as requirements.
 
@@ -74,6 +74,10 @@ Documents are sent to the configured backend, processed in memory, and not saved
 
 Scanned or image-only PDFs are not supported (no OCR); empty, encrypted, corrupt and unsupported documents are rejected. Extraction may not preserve layout, reading order, headers, text boxes or all complex DOCX content. Limits reduce resource risks but do not provide process isolation or guarantee protection from malicious parser inputs; this local development service is not hardened for public deployment. No AI analysis is performed.
 
+## Future research: experimental AI-writing detection
+
+No detector or detection score is implemented. A possible future module would be separate from CV-quality scoring and opt-in, with privacy-preserving evaluation before any user-facing release. Evaluation would require appropriately consented, representative human-written, AI-generated, and mixed/edited samples, independent held-out tests across languages, genres, document lengths, accessibility needs and applicant groups, and monitoring of false-positive and false-negative rates under distribution shift. Short CVs and edited or formulaic writing are especially difficult; false accusations can harm applicants, including non-native English speakers. Detection cannot reliably establish authorship: human and machine writing overlap, and editing or assistance blurs any boundary. Raw detector outputs must not be presented as probabilities without independent calibration and validation on the intended population and use case; even calibrated scores would not prove authorship or justify automated hiring decisions.
+
 ## Structure
 
 - `backend/app/main.py`: FastAPI routes, bounded multipart upload and local CORS policy.
@@ -81,6 +85,7 @@ Scanned or image-only PDFs are not supported (no OCR); empty, encrypted, corrupt
 - `backend/app/analysis.py`: pure, rule-based quality analysis.
 - `backend/tests/test_extract.py`: API and extraction tests.
 - `backend/tests/test_analysis.py`: analysis and upload validation tests.
+- `backend/tests/fixtures/synthetic_cvs.json` and `backend/tests/test_synthetic_profiles.py`: fictional profiles and deterministic validation checks.
 - `backend/requirements.txt`: Python dependencies.
 - `frontend/src/App.tsx`: homepage and connection indicator.
 - `frontend/src/health.ts`: backend health request and URL configuration.

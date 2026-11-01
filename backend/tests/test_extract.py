@@ -88,3 +88,29 @@ def test_health_and_cors():
     response = client.options("/api/cv/extract", headers={"Origin": "http://localhost:5173", "Access-Control-Request-Method": "POST"})
     assert response.status_code == 200
     assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
+
+
+def test_empty_docx_error_is_not_pdf_specific():
+    document = Document()
+    out = BytesIO()
+    document.save(out)
+    response = send("empty.docx", out.getvalue())
+    assert response.status_code == 422
+    assert "DOCX" in response.json()["detail"]
+    assert "scanned" not in response.json()["detail"]
+
+
+def test_no_text_pdf_explains_ocr_limitation():
+    response = send("scan.pdf", pdf(text=""))
+    assert response.status_code == 422
+    assert "OCR" in response.json()["detail"]
+
+
+def test_malformed_docx_does_not_expose_parser_error():
+    out = BytesIO()
+    with ZipFile(out, "w") as archive:
+        archive.writestr("[Content_Types].xml", "not xml")
+        archive.writestr("word/document.xml", "not xml")
+    response = send("bad.docx", out.getvalue())
+    assert response.status_code == 422
+    assert response.json()["detail"] == "The document is corrupt or has an invalid structure."

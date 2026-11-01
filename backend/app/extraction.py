@@ -2,7 +2,7 @@
 import re
 from io import BytesIO
 from pathlib import PurePosixPath
-from zipfile import BadZipFile, ZipFile
+from zipfile import ZipFile
 
 import pymupdf
 from docx import Document
@@ -39,7 +39,9 @@ def extract_document(filename: str, data: bytes) -> dict:
         raise DocumentError("The document is corrupt or has an invalid structure.") from None
     text = normalize(text)
     if not text:
-        raise DocumentError("No text found. The document may be empty or an image-only PDF; scanned PDFs are not supported.")
+        if extension == "pdf":
+            raise DocumentError("No text found. The PDF may be empty or scanned/image-only; OCR is not supported. Try a text-based PDF or DOCX.")
+        raise DocumentError("No text found in the DOCX. Check that it contains selectable text; images and text boxes may not be extracted.")
     if len(text) > MAX_TEXT:
         raise DocumentError("The document contains too much text to process.")
     return {"filename": filename, "file_type": extension, "character_count": len(text), "extracted_text": text}
@@ -88,7 +90,7 @@ def extract_docx(data: bytes) -> str:
         if isinstance(block, Paragraph):
             text = block.text
             # Word list markers are often formatting, not part of paragraph.text.
-            if text.strip() and (block._p.pPr is not None and block._p.pPr.numPr is not None or block.style and block.style.name.lower().startswith(("list bullet", "list number"))):
+            if text.strip() and not re.match(r"^\s*(?:[•●▪◦‣∙·■□◆►➤\uf0b7]|[-*–—]\s|\(?\d{1,2}[.)]\s)", text) and (block._p.pPr is not None and block._p.pPr.numPr is not None or block.style and block.style.name.lower().startswith(("list bullet", "list number"))):
                 text = "• " + text
             parts.append(text)
         elif isinstance(block, Table):

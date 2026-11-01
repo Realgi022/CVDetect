@@ -1,0 +1,7 @@
+[
+  {"profile": "student", "text": "Education\nDegree coursework\nAcademic Projects\n• Developed a library tool for student volunteers\nSkills\nPython, SQL\nSummary\nStudent interested in software", "sections": ["education", "projects", "skills", "summary"]},
+  {"profile": "professional", "text": "Professional Summary\nExperienced practitioner\nWork Experience\n- Managed a service team during 2020-2023\n- Streamlined an internal process for colleagues\nEducation\nRelevant training\nTechnical Skills\nPlanning, analysis", "sections": ["summary", "experience", "education", "skills"]},
+  {"profile": "career_changer", "text": "Career Objective\nTransition into software\nRelevant Experience\n* Coordinated community events with volunteer teams\nProjects\n1. Created a learning tool for local volunteers\nSkills\nCommunication, Python\nEducation\nCoursework", "sections": ["summary", "experience", "projects", "skills", "education"]},
+  {"profile": "sparse", "text": "Education\nCoursework\nSkills\nPython", "sections": ["education", "skills"]},
+  {"profile": "unusual", "text": " | PROJECT EXPERIENCE |\n◆ Engineered a simple tool for\ncommunity volunteers to share resources\n(2) Facilitated workshops for local community groups\nSKILLS & COMPETENCIES: Research; planning\nEDUCATION AND TRAINING\nIndependent study", "sections": ["projects", "skills", "education"]}
+]

@@ -8,10 +8,11 @@ HEADINGS = {
     "skills": {"skills", "technical skills", "key skills", "core skills", "competencies", "skills and competencies", "skills & competencies", "technical competencies"},
     "summary": {"summary", "professional summary", "profile", "personal profile", "objective", "career objective", "professional profile", "summary of qualifications"},
 }
-VERBS = set("built created developed designed implemented optimized optimised improved led managed organized organised delivered researched analyzed analysed tested wrote collaborated coordinated supported automated maintained deployed investigated planned produced contributed assisted presented".split())
-BULLET = re.compile(r"^\s*(?:[•●▪◦‣]\s*|[-*–—]\s+|\d{1,2}[.)]\s+)(?=\S)")
+VERBS = set("built created developed designed implemented optimized optimised improved led managed organized organised delivered researched analyzed analysed tested wrote collaborated coordinated supported automated maintained deployed investigated planned produced contributed assisted presented achieved administered advised authored configured constructed conducted consulted documented engineered established evaluated facilitated founded guided launched mentored migrated operated resolved streamlined trained transformed troubleshot updated used validated".split())
+BULLET = re.compile(r"^\s*(?:[•●▪◦‣∙·■□◆►➤\uf0b7]\s*|[-*–—]\s+|\(?\d{1,2}[.)]\s+)(?=\S)")
 WORDS = re.compile(r"\b[\w+#.-]+\b")
 CONTACT = re.compile(r"(?:\b[\w.+-]+@[\w.-]+\.[a-z]{2,}\b|https?://|www\.|\b(?:linkedin\.com|github\.com)/|(?<!\w)\+?\d[\d ()-]{7,}\d(?!\w))", re.I)
+YEAR_RANGE = re.compile(r"\b(?:19|20)\d{2}\s*[-–—]\s*(?:19|20)\d{2}\b")
 PERSONAL_FIELD = re.compile(r"^(?:name|age|date of birth|dob|nationality|gender|sex|address|phone|email)\s*:", re.I)
 OTHER_HEADING = re.compile(r"^(?:awards|certifications|references|interests|hobbies|languages|publications|personal details)\s*:?$", re.I)
 
@@ -34,7 +35,7 @@ def sections_from_text(text: str) -> dict[str, list[str]]:
                 sections[found].append(content.strip())
         elif OTHER_HEADING.fullmatch(line):
             current = None
-        elif current and not CONTACT.search(line) and not PERSONAL_FIELD.match(line):
+        elif current and not CONTACT.search(YEAR_RANGE.sub("", line)) and not PERSONAL_FIELD.match(line):
             sections[current].append(line)
     return sections
 
@@ -64,17 +65,21 @@ def analyze_text(text: str) -> dict:
         weaknesses.append("No education heading was recognized.")
         recommendations.append("Consider a clearly labeled education section if relevant.")
     if not optional:
+        weaknesses.append("No summary or objective heading was recognized; this section is optional.")
         recommendations.append("No summary or objective heading was recognized; optionally add a short summary tailored to your goals.")
 
     entries = []
     for name in ("experience", "projects"):
-        section_start = len(entries)
+        continuing = False
         for line in sections.get(name, []):
             if BULLET.match(line):
                 entries.append(line)
-            elif len(entries) > section_start and not re.search(r"[.!?:]$", entries[-1]) and line[:1].islower():
+                continuing = True
+            elif continuing and not re.search(r"[.!?:]$", entries[-1]) and line[:1].islower():
                 # A lowercase continuation is a conservative signal of a wrapped bullet.
                 entries[-1] += " " + line
+            else:
+                continuing = False
     cleaned = [BULLET.sub("", line).strip() for line in entries]
     action = sum(bool(WORDS.findall(line)) and WORDS.findall(line)[0].lower() in VERBS for line in cleaned)
     specific = sum(len(WORDS.findall(line)) >= 6 for line in cleaned)
@@ -84,8 +89,9 @@ def analyze_text(text: str) -> dict:
     exp_score = (20 + 40 * action / count + 40 * specific / count) if count else 0
     category("experience", exp_score, f"Found {count} explicit bullet(s) under experience/projects: {action} begin with a listed action verb, {specific} contain at least 6 words, and {measurable} include a recognizable numerical outcome. With bullets: 20 points for having bullets, up to 40 for the action-verb fraction and 40 for the 6-word fraction. Numerical outcomes do not affect the score and are not verified.")
     if count:
-        strengths.append(f"Found {count} experience/project bullet(s); {action} start with a recognized action verb and {specific} have at least 6 words.")
+        strengths.append(f"Found {count} explicit experience/project bullet(s).")
         if action < count or specific < count:
+            weaknesses.append(f"Of {count} recognized experience/project bullets, {count - action} do not start with a listed action verb and {count - specific} have fewer than 6 words.")
             recommendations.append(f"Of {count} recognized experience/project bullets, {action} start with a listed action verb and {specific} have at least 6 words. Where accurate, clarify what you did and its context or outcome.")
     else:
         weaknesses.append("No explicit experience/project bullets were recognized; extraction may have merged or removed bullet formatting.")
@@ -102,6 +108,7 @@ def analyze_text(text: str) -> dict:
         weaknesses.append("No populated skills section was recognized.")
         recommendations.append("If relevant, list skills you actually have under a clear Skills heading.")
     if skill_text and not separated:
+        weaknesses.append("The recognized skills content has no detected separators or multiple lines.")
         recommendations.append("The recognized skills content has no detected separators or multiple lines; consider grouping it without adding skills you do not have.")
 
     # Evaluate only recognized section content, excluding unclassified contact/personal details.
