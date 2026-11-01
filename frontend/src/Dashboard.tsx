@@ -13,7 +13,7 @@ const insightLabels: Record<string, string> = {
 function AuthorshipAvailability() {
   return <section className="authorship-panel" aria-labelledby="authorship-title">
     <div className="authorship-heading"><div><p className="eyebrow">AI AUTHORSHIP ASSESSMENT</p><h3 id="authorship-title">Authorship cannot be determined</h3></div><span className="availability-badge">NOT YET VALIDATED</span></div>
-    <div className="authorship-status"><p className="authorship-status-label">Assessment status</p><p className="authorship-status-value">INCONCLUSIVE</p><p>Unavailable — no AI-authorship model was run on this CV.</p></div>
+    <div className="authorship-status"><p className="authorship-status-label">Assessment status</p><p className="authorship-status-value">INCONCLUSIVE</p><p>Unavailable — no AI-authorship model was run by the public analysis.</p></div>
     <p className="authorship-explanation">AI-authorship assessment is still under development and is not available in the public product. This is a placeholder, not a model inference or a finding about your document.</p>
     <p className="authorship-caution">Writing style alone cannot prove who wrote a CV. Mistaken authorship claims can harm people and must not be used for hiring decisions.</p>
   </section>

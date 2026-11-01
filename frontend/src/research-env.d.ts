@@ -1,0 +1,1 @@
+declare const __LOCAL_RESEARCH_ENABLED__: boolean

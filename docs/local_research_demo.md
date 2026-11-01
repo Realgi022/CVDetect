@@ -1,6 +1,46 @@
 # Local end-to-end research demo
 
-**Fictional software test only.** This prototype extracts a fictional PDF/DOCX in memory and can run an explicitly trusted synthetic research model. It always reports **INCONCLUSIVE**. It is not reliable authorship detection, is not connected to the public React app, and must never be used for hiring or consequential decisions. Use only fictional or expressly authorized test documents; the demo below creates fictional content. Do not upload real CVs or personal data.
+**Fictional software test only.** This prototype extracts a fictional PDF/DOCX in memory and can run an explicitly trusted synthetic research model. It always reports **INCONCLUSIVE**. It is not reliable authorship detection, is not connected to the production React build or normal API, and must never be used for hiring or consequential decisions. An explicitly opted-in Vite development page can call the separately opted-in local research server as described below. Use only fictional or expressly authorized test documents; the demo below creates fictional content. Do not upload real CVs or personal data.
+
+## Main React page: local development integration
+
+Use an existing artifact you personally created from the fictional smoke fixtures, for example the Day 20 output. The artifact, matching report and digest must be trusted by the operator; no new model needs to be trained for this demo. In a backend PowerShell terminal, replace the path below with your own existing dedicated artifact directory:
+
+```powershell
+cd C:\Projects\CVDetect\backend
+$out = 'C:\path\to\your\fictional-artifact-directory'
+$model = (Get-ChildItem $out -Filter 'model-*.pkl').FullName
+$report = (Get-ChildItem $out -Filter 'report-*.json').FullName
+$env:CVDETECT_ENV = 'development'
+$env:CVDETECT_EXPERIMENTAL_INFERENCE = '1'
+$env:CVDETECT_RESEARCH_VITE = '1'
+$env:CVDETECT_RESEARCH_TRUSTED_PICKLE = '1'
+$env:CVDETECT_RESEARCH_MODEL_PATH = $model
+$env:CVDETECT_RESEARCH_MODEL_REPORT = $report
+$env:CVDETECT_RESEARCH_MODEL_SHA256 = (Get-FileHash -Algorithm SHA256 $model).Hash.ToLowerInvariant()
+.\.venv\Scripts\python.exe -m app.dev_server
+```
+
+In a second terminal, start the ordinary backend without research opt-ins:
+
+```powershell
+cd C:\Projects\CVDetect\backend
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+In a third terminal, start Vite on the exact allowed origin:
+
+```powershell
+cd C:\Projects\CVDetect\frontend
+$env:VITE_LOCAL_RESEARCH = '1'
+npm run dev -- --host 127.0.0.1
+```
+
+Open **http://127.0.0.1:5173**, choose a fictional PDF/DOCX and inspect the preview. In **LOCAL RESEARCH MODE**, select **Run experimental AI assessment**. The file is sent again to the local research server for extraction and explicitly requested artifact inference. The displayed raw score is returned by the model without conversion; it is not a probability or authorship verdict. **INCONCLUSIVE** and synthetic/unvalidated warnings remain mandatory. The normal quality analysis and Writing Insights continue separately. Use **Clear research result** to clear the diagnostic. The separate public analysis panel continues to show its unavailable placeholder. If the artifact is missing, or either opt-in is absent, the bridge does not run inference.
+
+For the real-browser smoke test, set `CVDETECT_TEST_DOCX` to an existing fictional DOCX while all three servers are running, then from `frontend` run `node tests/local-research-smoke.mjs` (Node 22+ and Chrome). To check production isolation, from `frontend` run `$env:VITE_LOCAL_RESEARCH='1'`, `npm run build`, then `node tests/production-isolation.mjs`. The development integration is compiled out even when that flag is set for a build.
+
+Stop each server with Ctrl+C. In the research terminal clear `Env:CVDETECT_ENV`, `Env:CVDETECT_EXPERIMENTAL_INFERENCE`, `Env:CVDETECT_RESEARCH_VITE`, `Env:CVDETECT_RESEARCH_TRUSTED_PICKLE`, `Env:CVDETECT_RESEARCH_MODEL_PATH`, `Env:CVDETECT_RESEARCH_MODEL_REPORT` and `Env:CVDETECT_RESEARCH_MODEL_SHA256`; in the Vite terminal clear `Env:VITE_LOCAL_RESEARCH`. No service should be exposed through a proxy or tunnel. The bridge accepts only the exact Vite origin, local socket peers and exact research Host; the signed HttpOnly Strict cookie and CSRF token are required. These defenses are not authentication against malicious local processes or compromised browsers.
 
 ## Verify and create a fictional artifact
 

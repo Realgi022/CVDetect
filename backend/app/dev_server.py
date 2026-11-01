@@ -24,6 +24,11 @@ RESEARCH_EXTRACT = "/research/extract"
 RESEARCH_ARTIFACT = "/research/artifact-analyze"
 RESEARCH_JS = "/research/app.js"
 RESEARCH_CSS = "/research/style.css"
+VITE_ORIGIN = "http://127.0.0.1:5173"
+VITE_SESSION = "/research/vite-session"
+VITE_EXTRACT = "/research/vite-extract"
+VITE_ARTIFACT = "/research/vite-analyze"
+VITE_PATHS = (VITE_SESSION, VITE_EXTRACT, VITE_ARTIFACT)
 ORIGIN = "http://127.0.0.1:8001"
 SESSION_SECONDS = 600
 ASSETS = Path(__file__).parent / "research_ui"
@@ -117,6 +122,26 @@ def create_development_app() -> FastAPI:
 
     @dev_app.middleware("http")
     async def gate_experiment(request: Request, call_next):
+        if request.url.path in VITE_PATHS:
+            enabled = os.environ.get("CVDETECT_RESEARCH_VITE") == "1"
+            if not enabled or not _browser_local(request) or request.headers.getlist("origin") != [VITE_ORIGIN]:
+                response = JSONResponse({"detail": "Not found."}, status_code=404)
+            elif request.method == "OPTIONS":
+                methods = request.headers.getlist("access-control-request-method")
+                requested = request.headers.getlist("access-control-request-headers")
+                allowed_headers = {"content-type", "x-csrf-token", "x-research-session"}
+                parsed = {h.strip().lower() for h in requested[0].split(",")} if len(requested) == 1 else set()
+                if methods != ["POST"] or len(requested) != 1 or not parsed or not parsed <= allowed_headers:
+                    response = JSONResponse({"detail": "Not found."}, status_code=404)
+                else:
+                    response = Response(status_code=204, headers={"Access-Control-Allow-Methods": "POST", "Access-Control-Allow-Headers": ", ".join(sorted(parsed))})
+            else:
+                response = await call_next(request)
+            if enabled and _browser_local(request) and request.headers.getlist("origin") == [VITE_ORIGIN] and response.status_code != 404:
+                response.headers.update({"Access-Control-Allow-Origin": VITE_ORIGIN, "Access-Control-Allow-Credentials": "true", "Vary": "Origin"})
+            response.headers.update({"Cache-Control": "no-store", "Content-Security-Policy": CSP,
+                                     "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer"})
+            return response
         if request.url.path in (RESEARCH_PAGE, RESEARCH_API, RESEARCH_EXTRACT, RESEARCH_ARTIFACT, RESEARCH_JS, RESEARCH_CSS):
             origins = request.headers.getlist("origin")
             allowed_origin = origins == [ORIGIN] if request.url.path in (RESEARCH_API, RESEARCH_EXTRACT, RESEARCH_ARTIFACT) else (not origins or origins == [ORIGIN])
@@ -178,6 +203,23 @@ def create_development_app() -> FastAPI:
     async def research_artifact(request: Request):
         require_session(request)
         return await _diagnostic(request, artifact=True)
+
+    @dev_app.post(VITE_SESSION, include_in_schema=False)
+    async def vite_session(request: Request):
+        if request.headers.getlist("x-research-session") != ["1"]:
+            raise HTTPException(403, "Invalid research session request.")
+        cookie, token = sessions.issue()
+        response = JSONResponse({"csrf_token": token})
+        response.set_cookie("research_session", cookie, max_age=SESSION_SECONDS, httponly=True, samesite="strict", path="/research")
+        return response
+
+    @dev_app.post(VITE_EXTRACT, include_in_schema=False)
+    async def vite_extract(request: Request):
+        return await research_extract(request)
+
+    @dev_app.post(VITE_ARTIFACT, include_in_schema=False)
+    async def vite_artifact(request: Request):
+        return await research_artifact(request)
 
     dev_app.mount("/", normal_app)
     return dev_app

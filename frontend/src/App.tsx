@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { checkHealth } from './health'
 import { extractCv, type Extraction } from './extract'
 import { analyzeCv, type Analysis } from './analyze'
 import { Dashboard } from './Dashboard'
+
+// Vite replaces this with false for every build, regardless of environment.
+const LocalResearch = __LOCAL_RESEARCH_ENABLED__ ? lazy(() => import('./LocalResearch')) : null
 
 type Status = 'checking' | 'connected' | 'offline'
 
@@ -102,6 +105,7 @@ function UploadPreview() {
         {result && <div className="analyze-row"><button type="button" disabled={analyzing} onClick={() => void analyze()} className="button button-primary">{analyzing ? 'Preparing feedback…' : 'Analyze CV'} <span aria-hidden="true">→</span></button><p>The same file is uploaded again for rule-based analysis; no AI-authorship model runs.</p></div>}
         {analyzing && <p role="status" className="feedback">Preparing rule-based CV feedback…</p>}
         {analysisError && <p role="alert" className="feedback error">{analysisError}</p>}
+        {LocalResearch && file && result && <Suspense fallback={<p role="status">Loading local research controls…</p>}><LocalResearch key={file.name + ':' + file.lastModified + ':' + file.size} file={file} /></Suspense>}
       </section>
       {report && <Dashboard report={report} />}
     </>
