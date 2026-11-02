@@ -1,5 +1,7 @@
 import type { Analysis } from './analyze'
 import { WritingPatterns } from './WritingPatterns'
+import type { ModelState } from './LocalResearch'
+import { interpretAiClassScore } from './scoreInterpretation'
 
 const labels: Record<string, [string, string]> = {
   structure: ['Structure', '30%'], experience: ['Experience / projects', '30%'],
@@ -11,11 +13,20 @@ const insightLabels: Record<string, string> = {
 }
 
 // This is a product-availability state, not an API result or model prediction.
-function AuthorshipAvailability({ local }: { local: { status: 'loading' | 'error' | 'ready'; message?: string; score?: number } | null }) {
-  if (local) return <section className="authorship-panel" aria-labelledby="authorship-title">
+type LocalScores = { logistic: ModelState; roberta: ModelState }
+
+function AuthorshipAvailability({ local }: { local: LocalScores | null }) {
+  if (__LOCAL_RESEARCH_ENABLED__ && local) return <section className="authorship-panel" aria-labelledby="authorship-title">
     <div className="authorship-heading"><div><p className="eyebrow">AI AUTHORSHIP ASSESSMENT · LOCAL DEVELOPMENT</p><h3 id="authorship-title">Experimental AI-class score (uncalibrated)</h3></div><span className="availability-badge">NOT YET VALIDATED</span></div>
-    <div className="authorship-status" role="status">{local.status === 'loading' ? <p>Running local experimental model…</p> : local.status === 'error' ? <p>{local.message}</p> : typeof local.score === 'number' ? <p className="authorship-status-value">{(local.score * 100).toFixed(1)}%</p> : <p>Model score unavailable.</p>}</div>
-    <p className="authorship-explanation">This synthetic, unvalidated model output is not the percentage of the document written by AI and is not a calibrated probability. It cannot determine authorship and is not suitable for hiring decisions.</p>
+    <div className="local-model-grid">{([['logistic', 'Logistic Regression — experimental AI-class score'], ['roberta', 'RoBERTa — experimental AI-class scores by chunk']] as const).map(([key, label]) => {
+      const state = local[key]
+      return <div className="authorship-status" role="status" key={key} data-model={key}><p className="authorship-status-label">{label} (uncalibrated)</p>{state.status === 'loading' ? <p>Running local experimental model…</p> : state.status === 'error' ? <p>{state.message}</p> : state.chunks && state.coverage ? <><p>{state.chunks.length} {state.chunks.length === 1 ? 'chunk' : 'chunks'} · {state.coverage.assigned_characters} / {state.coverage.source_characters} extracted characters assigned · {state.coverage.scored_characters} characters scored</p><p>{state.coverage.source_content_tokens} source tokens; {state.coverage.chunk_content_tokens} tokens after chunking (boundary retokenization can change counts). Each model input includes special tokens and is limited to {state.coverage.model_input_limit}.</p><ol className="chunk-results">{state.chunks.map((chunk, i) => {
+        const score = chunk.status === 'scored' ? chunk.ai_class_probability : undefined
+        const interpretation = typeof score === 'number' ? interpretAiClassScore(score) : null
+        return <li key={i}><div><strong>Chunk {i + 1}:</strong> {interpretation && typeof score === 'number' ? `${(score * 100).toFixed(1)}%` : 'Insufficient text — not scored'} <span>({chunk.content_tokens} content tokens; {chunk.input_tokens} including special tokens)</span></div>{interpretation && <div className="chunk-interpretation"><strong>{interpretation.title}</strong><p>{interpretation.explanation}</p></div>}</li>
+      })}</ol><p className="interpretation-disclaimer">These interpretation bands are illustrative and have not been scientifically validated on CVs. Bands use unrounded model scores; percentages are rounded for display.</p><p>No overall RoBERTa score is calculated.</p></> : typeof state.score === 'number' ? <p className="authorship-status-value">{(state.score * 100).toFixed(1)}%</p> : <p>Model score unavailable.</p>}</div>
+    })}</div>
+    <p className="authorship-explanation">These unvalidated model outputs are not percentages of the document written by AI and are not calibrated probabilities. They cannot determine authorship and are not suitable for hiring decisions. The Logistic Regression model was trained on fictional examples; RoBERTa has not been validated on CVs.</p>
   </section>
   return <section className="authorship-panel" aria-labelledby="authorship-title">
     <div className="authorship-heading"><div><p className="eyebrow">AI AUTHORSHIP ASSESSMENT</p><h3 id="authorship-title">Authorship cannot be determined</h3></div><span className="availability-badge">NOT YET VALIDATED</span></div>
@@ -25,7 +36,7 @@ function AuthorshipAvailability({ local }: { local: { status: 'loading' | 'error
   </section>
 }
 
-export function Dashboard({ report, local = null }: { report: Analysis; local?: { status: 'loading' | 'error' | 'ready'; message?: string; score?: number } | null }) {
+export function Dashboard({ report, local = null }: { report: Analysis; local?: LocalScores | null }) {
   const groups = [
     { title: 'Strengths', description: 'What the rules recognized', items: report.strengths, icon: '✓', tone: 'strength' },
     { title: 'Improvement opportunities', description: 'Areas to review in your CV', items: report.weaknesses, empty: report.recommendations.length ? 'See the recommendations below for suggested improvements.' : 'None identified by these rules.', icon: '!', tone: 'opportunity' },

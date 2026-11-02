@@ -14,6 +14,7 @@ $report = (Get-ChildItem $out -Filter 'report-*.json').FullName
 $env:CVDETECT_ENV = 'development'
 $env:CVDETECT_EXPERIMENTAL_INFERENCE = '1'
 $env:CVDETECT_RESEARCH_VITE = '1'
+$env:CVDETECT_RESEARCH_ROBERTA = '1'
 $env:CVDETECT_RESEARCH_TRUSTED_PICKLE = '1'
 $env:CVDETECT_RESEARCH_MODEL_PATH = $model
 $env:CVDETECT_RESEARCH_MODEL_REPORT = $report
@@ -36,7 +37,7 @@ $env:VITE_LOCAL_RESEARCH = '1'
 npm run dev -- --host 127.0.0.1
 ```
 
-Open **http://127.0.0.1:5173**, choose a fictional PDF/DOCX and select **Analyze CV**. Local inference runs automatically, separately from public analysis. The top card shows the AI-class `predict_proba` output as an uncalibrated percentage-style score, when supported; it is not the proportion of text written by AI, a calibrated probability, or an authorship verdict. The synthetic model is not suitable for hiring. An artifact without `predict_proba`, insufficient text, or an unavailable server displays an explicit state instead. The production build still shows the public inconclusive placeholder.
+Open **http://127.0.0.1:5173**, choose a fictional PDF/DOCX and select **Analyze CV**. Local inference runs automatically, separately from public analysis. The top card shows Logistic Regression and optional RoBERTa experimental outputs side by side; these are not the proportion of text written by AI, calibrated probabilities, or authorship verdicts, and must not be used for hiring. RoBERTa requires the separately installed local CPU dependencies and the trusted files at `C:\Users\realg\AppData\Local\Temp\opencode\day24-fakespot`. It loads once per process, with no download or remote code. Extracted text is limited to 20,000 characters and split into at most 16 non-overlapping chunks, respecting line boundaries where possible; each model input is checked against the 512-token limit including special tokens. Chunks under 10 content tokens are not scored. Coverage shows assigned and scored characters and source and re-tokenized chunk token counts; counts can differ at chunk boundaries. There is no combined RoBERTa score. Model failures or limit violations display explicit states, never partial silent truncation. The production build still shows the public inconclusive placeholder.
 
 For the real-browser smoke test, set `CVDETECT_TEST_DOCX` and `CVDETECT_TEST_DOCX_2` to two existing fictional DOCX files while all three servers are running, then from `frontend` run `node tests/local-research-smoke.mjs` (Node 22+ and Chrome). To check production isolation, from `frontend` run `$env:VITE_LOCAL_RESEARCH='1'`, `npm run build`, then `node tests/production-isolation.mjs`. The development integration is compiled out even when that flag is set for a build.
 

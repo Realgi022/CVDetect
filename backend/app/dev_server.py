@@ -28,7 +28,8 @@ VITE_ORIGIN = "http://127.0.0.1:5173"
 VITE_SESSION = "/research/vite-session"
 VITE_EXTRACT = "/research/vite-extract"
 VITE_ARTIFACT = "/research/vite-analyze"
-VITE_PATHS = (VITE_SESSION, VITE_EXTRACT, VITE_ARTIFACT)
+VITE_ROBERTA = "/research/vite-roberta"
+VITE_PATHS = (VITE_SESSION, VITE_EXTRACT, VITE_ARTIFACT, VITE_ROBERTA)
 ORIGIN = "http://127.0.0.1:8001"
 SESSION_SECONDS = 600
 ASSETS = Path(__file__).parent / "research_ui"
@@ -70,7 +71,7 @@ class ResearchSessions:
             return False
 
 
-async def _diagnostic(request: Request, *, artifact=False):
+async def _diagnostic(request: Request, *, artifact=False, roberta=False):
     if request.headers.get("content-type", "").split(";", 1)[0].strip().lower() != "application/json":
         raise HTTPException(415, "Expected application/json.")
     body = bytearray()
@@ -85,7 +86,9 @@ async def _diagnostic(request: Request, *, artifact=False):
     if not isinstance(payload, dict) or set(payload) != {"text"} or not isinstance(payload["text"], str):
         raise HTTPException(400, "Provide only a text string.")
     try:
-        if artifact:
+        if roberta:
+            from ml.roberta_inference import infer
+        elif artifact:
             from ml.artifact_inference import infer_trusted as infer
         else:
             from ml.dev_inference import infer
@@ -93,7 +96,7 @@ async def _diagnostic(request: Request, *, artifact=False):
     except ValueError:
         raise HTTPException(400, "Invalid text or research model configuration.") from None
     except Exception:
-        raise HTTPException(503, "Trusted local research artifact unavailable; see the local demo guide." if artifact else "Local research model unavailable.") from None
+        raise HTTPException(503, "Local RoBERTa model unavailable." if roberta else "Trusted local research artifact unavailable; see the local demo guide." if artifact else "Local research model unavailable.") from None
 
 
 def _loopback(address):
@@ -220,6 +223,11 @@ def create_development_app() -> FastAPI:
     @dev_app.post(VITE_ARTIFACT, include_in_schema=False)
     async def vite_artifact(request: Request):
         return await research_artifact(request)
+
+    @dev_app.post(VITE_ROBERTA, include_in_schema=False)
+    async def vite_roberta(request: Request):
+        require_session(request)
+        return await _diagnostic(request, roberta=True)
 
     dev_app.mount("/", normal_app)
     return dev_app

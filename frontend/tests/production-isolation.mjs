@@ -10,6 +10,6 @@ async function files(path) {
 }
 for (const path of await files('dist')) {
   const content = await readFile(path, 'utf8')
-  assert.doesNotMatch(content, /\/research\/vite-(session|extract|analyze)|Run experimental AI assessment|unvalidated_research_model/)
+  assert.doesNotMatch(content, /\/research\/vite-(session|extract|analyze|roberta)|Run experimental AI assessment|unvalidated_research_model|LOW AI SIGNAL|HIGH AI SIGNAL/)
 }
 console.log('Production bundle contains no local research integration or endpoints.')
